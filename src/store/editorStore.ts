@@ -6,7 +6,6 @@ import {
   bboxCenter,
   flipHorizontal,
   flipVertical,
-  moveObjectTo,
   resizeObjectTo,
   translateObject,
   unionBBox,
