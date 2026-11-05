@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/*
+ * CutDesk design tokens.
+ * The canvas is a cutting mat, so the palette comes from the workshop:
+ * mat green, blade red, score blue, pen violet, on a cool grey-green bench.
+ */
+@theme {
+  --color-bench: #e3e8e4;
+  --color-panel: #f7f8f5;
+  --color-sunken: #edf0ec;
+  --color-line: #c9d1cb;
+  --color-line-strong: #a9b5ad;
+  --color-ink: #17251e;
+  --color-ink-soft: #566559;
+  --color-ink-faint: #7b8a7f;
+  --color-mat: #a7cdb1;
+  --color-mat-deep: #1f4431;
+  --color-blade: #c7211f;
+  --color-score: #2455d6;
+  --color-pen: #6d2fcb;
+  --color-focus: #2455d6;
+
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-control: 6px;
+  --radius-pop: 10px;
+
+  --shadow-pop: 0 8px 28px -6px rgb(23 37 30 / 0.28), 0 0 0 1px rgb(23 37 30 / 0.08);
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bench);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* Keyboard focus is always visible; mouse focus stays quiet. */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-mat) 70%, white);
+}
+
+/* Slim scrollbars inside the side panels. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pop-in {
+  animation: pop-in 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
