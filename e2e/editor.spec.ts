@@ -145,6 +145,15 @@ test.describe("CutDesk editor", () => {
     await expect(page.getByRole("button", { name: /Apply fill #FF8FA3/i })).toBeVisible();
   });
 
+  test("toggles rulers on and off", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await page.getByRole("button", { name: "Show rulers" }).click();
+    await expect(page.getByLabel(/Horizontal ruler/)).toBeVisible();
+    await page.getByRole("button", { name: "Hide rulers" }).click();
+    await expect(page.getByLabel(/Horizontal ruler/)).toBeHidden();
+  });
+
   test("exports the design as a PNG", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();

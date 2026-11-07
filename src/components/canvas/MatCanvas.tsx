@@ -42,6 +42,7 @@ interface DragState {
 const INK = "#17251e";
 const SELECT_BLUE = "#2455d6";
 const GUIDE_PINK = "#e5327b";
+const GUIDE_LINE = "#17b3c4";
 /** How close (screen px) a box line must come to a target before it snaps. */
 const SNAP_PX = 6;
 
@@ -76,6 +77,8 @@ export function MatCanvas() {
   const view = useEditor((s) => s.view);
   const viewport = useEditor((s) => s.viewport);
   const preview = useEditor((s) => s.preview);
+  const guidesX = useEditor((s) => s.guidesX);
+  const guidesY = useEditor((s) => s.guidesY);
   const setViewport = useEditor((s) => s.setViewport);
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -385,12 +388,15 @@ export function MatCanvas() {
     }
     const dragged = st.doc.objects.filter((o) => wanted.has(o.id)).map(worldAABB);
     const startBox = unionBBox(dragged) ?? { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    const lines = snapTargets(st.doc, wanted);
+    lines.xs.push(...st.guidesX); // snap to user guides too
+    lines.ys.push(...st.guidesY);
     dragState.current = {
       leader: lead.id(),
       origin: { x: lead.x(), y: lead.y() },
       nodes,
       startBox,
-      lines: snapTargets(st.doc, wanted),
+      lines,
       boxes: snapBoxes(st.doc, wanted),
     };
   }, []);
@@ -450,7 +456,10 @@ export function MatCanvas() {
 
   const onTransformStart = () => {
     const st = useEditor.getState();
-    resizeLines.current = snapTargets(st.doc, new Set(st.selection));
+    const lines = snapTargets(st.doc, new Set(st.selection));
+    lines.xs.push(...st.guidesX);
+    lines.ys.push(...st.guidesY);
+    resizeLines.current = lines;
   };
 
   const onTransformEnd = () => {
@@ -533,6 +542,21 @@ export function MatCanvas() {
       <Rect {...common} {...b} />
     ) : (
       <Ellipse {...common} x={b.x + b.width / 2} y={b.y + b.height / 2} radiusX={b.width / 2} radiusY={b.height / 2} />
+    );
+  })();
+
+  const userGuides = (() => {
+    if (guidesX.length === 0 && guidesY.length === 0) return null;
+    const m = 40;
+    return (
+      <>
+        {guidesX.map((gx, i) => (
+          <Path key={`gx${i}`} data={`M${gx} ${-m}L${gx} ${doc.mat.height + m}`} stroke={GUIDE_LINE} strokeWidth={0.8} strokeScaleEnabled={false} dash={[4, 3]} listening={false} />
+        ))}
+        {guidesY.map((gy, i) => (
+          <Path key={`gy${i}`} data={`M${-m} ${gy}L${doc.mat.width + m} ${gy}`} stroke={GUIDE_LINE} strokeWidth={0.8} strokeScaleEnabled={false} dash={[4, 3]} listening={false} />
+        ))}
+      </>
     );
   })();
 
@@ -696,6 +720,7 @@ export function MatCanvas() {
             })}
           </Layer>
           <Layer>
+            {userGuides}
             {guideShapes}
             {spacingShapes}
             {draftShape}

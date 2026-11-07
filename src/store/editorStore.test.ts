@@ -433,6 +433,36 @@ describe("copy / cut / paste", () => {
   });
 });
 
+describe("guides", () => {
+  it("adds guides per axis, sorted, and clears them", () => {
+    state().addGuide("x", 50);
+    state().addGuide("x", 10);
+    state().addGuide("y", 30);
+    expect(state().guidesX).toEqual([10, 50]);
+    expect(state().guidesY).toEqual([30]);
+    state().clearGuides();
+    expect(state().guidesX).toEqual([]);
+    expect(state().guidesY).toEqual([]);
+  });
+
+  it("R1: ignores non-finite positions", () => {
+    state().addGuide("x", Number.NaN);
+    state().addGuide("x", Infinity);
+    expect(state().guidesX).toEqual([]);
+  });
+
+  it("R2: de-duplicates near-identical guides", () => {
+    state().addGuide("x", 20);
+    state().addGuide("x", 20.02); // within 0.05 mm
+    expect(state().guidesX).toEqual([20]);
+  });
+
+  it("R3: caps the number of guides", () => {
+    for (let i = 0; i < 100; i++) state().addGuide("x", i);
+    expect(state().guidesX.length).toBe(64);
+  });
+});
+
 describe("transforms and arrangement", () => {
   it("sets position by bounds and size by bounds", () => {
     const id = state().addObject({ geo: { kind: "ellipse", rx: 10, ry: 10 }, init: { x: 50, y: 50 } });

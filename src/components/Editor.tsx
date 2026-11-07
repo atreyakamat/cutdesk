@@ -8,6 +8,7 @@ import { CanvasContextMenu } from "./CanvasContextMenu";
 import { NoticeToast } from "./NoticeToast";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { PageBar } from "./PageBar";
+import { Rulers } from "./Rulers";
 import { StatusBar } from "./StatusBar";
 import { TemplatesDialog } from "./TemplatesDialog";
 import { ToolRail } from "./ToolRail";
@@ -32,6 +33,7 @@ export default function Editor() {
           <ToolRail />
           <main className="mat-stage relative min-h-0 min-w-0 overflow-hidden" aria-label="Cutting mat">
             <MatCanvas />
+            <Rulers />
             <EmptyState />
             <PageBar />
             <StatusBar />

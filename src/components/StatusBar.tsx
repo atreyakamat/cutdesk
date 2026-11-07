@@ -1,6 +1,6 @@
 "use client";
 
-import { Maximize, Minus, Plus, TriangleAlert } from "lucide-react";
+import { Maximize, Minus, Plus, Ruler, TriangleAlert } from "lucide-react";
 import { useMemo } from "react";
 import { objectsOutsideMat } from "@/lib/doc/cutPlan";
 import { formatValue } from "@/lib/doc/units";
@@ -17,6 +17,8 @@ export function StatusBar() {
   const selectionCount = useEditor((s) => s.selection.length);
   const zoomAt = useEditor((s) => s.zoomAt);
   const fitView = useEditor((s) => s.fitView);
+  const showRulers = useEditor((s) => s.showRulers);
+  const setShowRulers = useEditor((s) => s.setShowRulers);
 
   const outside = useMemo(() => objectsOutsideMat(doc).length, [doc]);
   const cx = viewport.width / 2;
@@ -41,6 +43,7 @@ export function StatusBar() {
       </div>
 
       <div className="pointer-events-auto flex items-center rounded-pop bg-panel/90 p-0.5 shadow-pop backdrop-blur">
+        <IconButton icon={Ruler} label={showRulers ? "Hide rulers" : "Show rulers"} size="sm" tipSide="top" pressed={showRulers} onClick={() => setShowRulers(!showRulers)} />
         <IconButton icon={Minus} label="Zoom out" shortcut="-" size="sm" tipSide="top" onClick={() => zoomAt(0.8, cx, cy)} />
         <span className="w-12 text-center text-xs tabular-nums text-ink-soft" aria-label="Zoom level">
           {Math.round((scale / PX_PER_MM_AT_100) * 100)}%

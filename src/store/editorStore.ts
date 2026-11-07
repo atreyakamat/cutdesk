@@ -97,6 +97,10 @@ interface EditorState {
   /** Bumped to ask the inspector to focus the text field. */
   textFocusTick: number;
   panelsOpen: boolean;
+  /** Rulers + guides (guides are in mm; session-only, not saved to the file). */
+  showRulers: boolean;
+  guidesX: number[];
+  guidesY: number[];
   /** Canvas right-click menu anchor, in client (screen) pixels. */
   contextMenu: { x: number; y: number } | null;
   /** Last pointer position on the mat, in millimetres. */
@@ -177,6 +181,9 @@ interface EditorState {
   setHelpOpen: (open: boolean) => void;
   setSaveStatus: (status: SaveStatus) => void;
   setPanelsOpen: (open: boolean) => void;
+  setShowRulers: (show: boolean) => void;
+  addGuide: (axis: "x" | "y", mm: number) => void;
+  clearGuides: () => void;
   openContextMenu: (x: number, y: number) => void;
   closeContextMenu: () => void;
 }
@@ -260,6 +267,9 @@ export const useEditor = create<EditorState>()((set, get) => {
     saveStatus: "idle",
     textFocusTick: 0,
     panelsOpen: false,
+    showRulers: false,
+    guidesX: [],
+    guidesY: [],
     contextMenu: null,
     cursor: null,
 
@@ -1036,6 +1046,21 @@ export const useEditor = create<EditorState>()((set, get) => {
     setSaveStatus: (saveStatus) => set((s) => (s.saveStatus === saveStatus ? s : { saveStatus })),
 
     setPanelsOpen: (panelsOpen) => set({ panelsOpen }),
+
+    setShowRulers: (showRulers) => set({ showRulers }),
+
+    addGuide: (axis, mm) => {
+      if (!Number.isFinite(mm)) return; // ignore junk positions
+      const v = Math.round(mm * 10) / 10;
+      set((s) => {
+        const key = axis === "x" ? "guidesX" : "guidesY";
+        const list = s[key];
+        if (list.length >= 64 || list.some((g) => Math.abs(g - v) < 0.05)) return s; // cap + dedupe
+        return { [key]: [...list, v].sort((a, b) => a - b) } as Partial<EditorState>;
+      });
+    },
+
+    clearGuides: () => set((s) => (s.guidesX.length || s.guidesY.length ? { guidesX: [], guidesY: [] } : s)),
 
     openContextMenu: (x, y) => set({ contextMenu: { x, y } }),
 
