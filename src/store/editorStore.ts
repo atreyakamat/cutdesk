@@ -15,7 +15,8 @@ import {
   worldPolylines,
 } from "@/lib/doc/geometry";
 import { booleanRings, offsetRings, pointInRing, ringArea, ringsBBox, ringsToPathData, type BooleanOp, type Ring } from "@/lib/doc/clip";
-import { flattenSegs, moveAnchor, parsePath, serializePath, transformPoint, type Seg } from "@/lib/doc/pathData";
+import { flattenSegs, moveAnchor, parsePath, segsBBox, serializePath, transformPoint, type Seg } from "@/lib/doc/pathData";
+import { arcWarpPath } from "@/lib/doc/arcWarp";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
@@ -161,7 +162,7 @@ interface EditorState {
   setStyle: (ids: readonly string[], patch: Partial<ObjectStyle>) => void;
   group: () => void;
   ungroup: () => void;
-  setTextProps: (id: string, patch: Partial<{ text: string; fontId: FontId; size: number; letterSpacing: number }>) => Promise<void>;
+  setTextProps: (id: string, patch: Partial<{ text: string; fontId: FontId; size: number; letterSpacing: number; arc: number }>) => Promise<void>;
   createText: (x: number, y: number, text?: string) => Promise<string | null>;
 
   // layers
@@ -990,6 +991,14 @@ export const useEditor = create<EditorState>()((set, get) => {
       try {
         const font = await loadFont(next.fontId);
         const outline = textOutline(font, next.text, next.size, next.letterSpacing);
+        // Curve the outline along an arc when requested, recomputing the bounds.
+        const arc = next.arc ?? 0;
+        let bits = { d: outline.d, width: outline.width, height: outline.height };
+        if (arc) {
+          const d = arcWarpPath(outline.d, outline.width, arc);
+          const bb = segsBBox(parsePath(d));
+          bits = bb ? { d, width: bb.maxX - bb.minX, height: bb.maxY - bb.minY } : bits;
+        }
         get().mapObjects(
           [id],
           (o) => {
@@ -997,8 +1006,8 @@ export const useEditor = create<EditorState>()((set, get) => {
             const before = worldAABB(o);
             const updated: DesignObject = {
               ...o,
-              name: patch.text !== undefined ? nameFor(get().doc, { ...next, ...outline }) : o.name,
-              geo: { ...next, ...outline },
+              name: patch.text !== undefined ? nameFor(get().doc, { ...next, ...bits }) : o.name,
+              geo: { ...next, ...bits, arc },
             };
             // Keep the top-left corner of the text where it was.
             const after = worldAABB(updated);

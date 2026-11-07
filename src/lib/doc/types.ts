@@ -40,6 +40,8 @@ export type Geometry =
       fontId: FontId;
       size: number;
       letterSpacing: number;
+      /** Curve the text along an arc of this many degrees (0 = straight). */
+      arc?: number;
       d: string;
       width: number;
       height: number;

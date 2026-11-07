@@ -205,6 +205,19 @@ function TextFields({ id }: { id: string }) {
             onCommit={(v) => void setTextProps(id, { letterSpacing: toMm(v, unit) })}
           />
         </div>
+        <label className="flex items-center gap-2 text-sm text-ink-soft">
+          <span className="w-14">Curve</span>
+          <input
+            type="range"
+            min={-180}
+            max={180}
+            aria-label="Curve text along an arc"
+            value={geo.arc ?? 0}
+            onChange={(e) => void setTextProps(id, { arc: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="w-9 text-right tabular-nums">{Math.round(geo.arc ?? 0)}°</span>
+        </label>
       </div>
     </Section>
   );
