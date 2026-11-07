@@ -184,6 +184,35 @@ test.describe("CutDesk editor", () => {
     await expect(page.getByText(/^1 object/)).toBeVisible();
   });
 
+  test("adds an outline around a shape", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await page.getByRole("button", { name: "Rectangle" }).click();
+    const c = await matCentre(page);
+    await page.mouse.click(c.x, c.y);
+    await expect(page.getByText(/1 object/)).toBeVisible();
+    await page.getByRole("button", { name: "Add outline" }).click();
+    await expect(page.getByText(/2 objects/)).toBeVisible();
+  });
+
+  test("curves text with the Curve slider without errors", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await page.getByRole("button", { name: "Text", exact: true }).click(); // the tool, not "Add text"
+    const c = await matCentre(page);
+    await page.mouse.click(c.x, c.y);
+    await expect(page.getByText(/1 object/)).toBeVisible();
+
+    const slider = page.getByLabel("Curve text along an arc");
+    await expect(slider).toBeVisible();
+    await slider.fill("90");
+    await expect(page.getByText(/1 object/)).toBeVisible();
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+
   test("toggles dark mode and remembers it across a reload", async ({ page }) => {
     await page.goto("/");
     const html = page.locator("html");
