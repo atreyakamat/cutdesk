@@ -229,6 +229,7 @@ function SelectionSection() {
   const unit = useEditor((s) => s.doc.unit);
   const store = useEditor.getState;
   const [lock, setLock] = useState(true);
+  const [outlineMm, setOutlineMm] = useState(3);
   const [presetVer, setPresetVer] = useState(0);
   const presets = useMemo(() => {
     void presetVer; // re-read local storage after a save/delete
@@ -484,19 +485,33 @@ function SelectionSection() {
             </div>
           )}
           {shapeCount >= 1 && (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => store().outlineSelection(3)}
-                className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium hover:bg-sunken"
-              >
-                Add outline
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-end gap-2">
+                <NumberField
+                  className="flex-1"
+                  label="Outline"
+                  ariaLabel="Outline distance"
+                  unit={unit}
+                  precision={prec}
+                  min={0}
+                  max={fromMm(50, unit)}
+                  step={unit === "mm" ? 0.5 : 0.02}
+                  value={fromMm(outlineMm, unit)}
+                  onCommit={(v) => setOutlineMm(toMm(v, unit))}
+                />
+                <button
+                  type="button"
+                  onClick={() => store().outlineSelection(outlineMm)}
+                  className="inline-flex h-8 items-center justify-center rounded-control border border-line bg-raised px-3 text-sm font-medium hover:bg-sunken"
+                >
+                  Add
+                </button>
+              </div>
               {hasPathLike && (
                 <button
                   type="button"
                   onClick={() => store().contourSelection()}
-                  className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium hover:bg-sunken"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium hover:bg-sunken"
                 >
                   Remove holes
                 </button>

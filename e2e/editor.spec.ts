@@ -191,7 +191,7 @@ test.describe("CutDesk editor", () => {
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
-    await page.getByRole("button", { name: "Add outline" }).click();
+    await page.getByRole("button", { name: "Add", exact: true }).click(); // the outline "Add" button
     await expect(page.getByText(/2 objects/)).toBeVisible();
   });
 
