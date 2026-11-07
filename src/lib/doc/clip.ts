@@ -75,6 +75,37 @@ export function booleanRings(subjectRings: readonly Ring[], clipRings: readonly 
   return fromClipper(solution);
 }
 
+/** Signed area (shoelace); sign indicates winding. */
+export function ringArea(r: Ring): number {
+  let s = 0;
+  for (let i = 0; i < r.length; i++) {
+    const j = (i + 1) % r.length;
+    s += r[i].x * r[j].y - r[j].x * r[i].y;
+  }
+  return s / 2;
+}
+
+/** Ray-cast point-in-polygon test. */
+export function pointInRing(pt: Point, ring: Ring): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    const dy = b.y - a.y || 1e-12;
+    if (a.y > pt.y !== b.y > pt.y && pt.x < ((b.x - a.x) * (pt.y - a.y)) / dy + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/** Drop rings that sit inside a larger ring (holes), keeping outer boundaries. */
+export function removeHoles(rings: readonly Ring[]): Ring[] {
+  return rings.filter(
+    (r, i) =>
+      r.length >= 3 &&
+      !rings.some((o, j) => j !== i && o.length >= 3 && Math.abs(ringArea(o)) > Math.abs(ringArea(r)) && pointInRing(r[0], o)),
+  );
+}
+
 /** SVG path data for a set of rings, each closed. */
 export function ringsToPathData(rings: readonly Ring[], decimals = 3): string {
   const n = (v: number) => String(Number(v.toFixed(decimals)));

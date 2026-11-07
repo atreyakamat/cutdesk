@@ -12,7 +12,8 @@ import {
   worldAABB,
   worldPolylines,
 } from "@/lib/doc/geometry";
-import { booleanRings, offsetRings, ringsBBox, ringsToPathData, type BooleanOp, type Ring } from "@/lib/doc/clip";
+import { booleanRings, offsetRings, pointInRing, ringArea, ringsBBox, ringsToPathData, type BooleanOp, type Ring } from "@/lib/doc/clip";
+import { flattenSegs, parsePath, serializePath, type Seg } from "@/lib/doc/pathData";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
@@ -145,6 +146,7 @@ interface EditorState {
   distribute: (axis: "h" | "v") => void;
   outlineSelection: (deltaMm: number) => void;
   combineSelection: (op: BooleanOp) => void;
+  contourSelection: () => void;
   restack: (mode: StackMode) => void;
   renameObject: (id: string, name: string) => void;
   moveToLayer: (ids: readonly string[], layerId: string) => void;
@@ -818,6 +820,42 @@ export const useEditor = create<EditorState>()((set, get) => {
         return { ...doc, objects };
       });
       set({ selection: [id] });
+    },
+
+    contourSelection: () => {
+      const sel = new Set(get().selection);
+      const targets = get().doc.objects.filter((o) => sel.has(o.id) && (o.geo.kind === "path" || o.geo.kind === "text"));
+      if (targets.length === 0) {
+        get().notify("info", "Select a path or text to remove its interior holes.");
+        return;
+      }
+      let changed = false;
+      get().commitDoc((d) => {
+        const objects = d.objects.map((o) => {
+          if (!sel.has(o.id) || (o.geo.kind !== "path" && o.geo.kind !== "text")) return o;
+          // Split into sub-paths at each "M"; a sub-path whose flattened ring sits
+          // inside a larger one is a hole — drop it, keeping the curve data of the rest.
+          const groups: Seg[][] = [];
+          for (const s of parsePath(o.geo.d)) {
+            if (s.t === "M") groups.push([s]);
+            else if (groups.length) groups[groups.length - 1].push(s);
+          }
+          if (groups.length <= 1) return o;
+          const rings = groups.map((g) => flattenSegs(g).flatMap((pl) => pl.points));
+          const keep = groups.filter(
+            (_g, i) =>
+              rings[i].length >= 3 &&
+              !rings.some(
+                (or, j) => j !== i && or.length >= 3 && Math.abs(ringArea(or)) > Math.abs(ringArea(rings[i])) && pointInRing(rings[i][0], or),
+              ),
+          );
+          if (keep.length === groups.length) return o;
+          changed = true;
+          return { ...o, geo: { ...o.geo, d: keep.map((g) => serializePath(g, 3)).join(" ") } };
+        });
+        return changed ? { ...d, objects } : d;
+      });
+      if (!changed) get().notify("info", "No interior holes to remove.");
     },
 
     restack: (mode) => {

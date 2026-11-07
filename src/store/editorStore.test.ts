@@ -497,6 +497,43 @@ describe("outline and boolean ops", () => {
   });
 });
 
+describe("contour (remove holes)", () => {
+  const mCount = (d: string) => (d.match(/M/gi) ?? []).length;
+  // Outer 0..20 square with an inner 5..15 square hole.
+  const withHole = "M0 0L20 0L20 20L0 20Z M5 5L15 5L15 15L5 15Z";
+
+  it("drops a hole sub-path, leaving the outer boundary", () => {
+    const id = state().addObject({ geo: { kind: "path", d: withHole }, init: { x: 0, y: 0 } });
+    state().select([id]);
+    state().contourSelection();
+    const o = state().doc.objects.find((x) => x.id === id)!;
+    expect(mCount((o.geo as { d: string }).d)).toBe(1);
+  });
+
+  it("R1: leaves a path with no holes unchanged", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0L10 10L0 10Z" }, init: { x: 0, y: 0 } });
+    state().select([id]);
+    const before = (state().doc.objects.find((x) => x.id === id)!.geo as { d: string }).d;
+    state().contourSelection();
+    expect((state().doc.objects.find((x) => x.id === id)!.geo as { d: string }).d).toBe(before);
+  });
+
+  it("R2: keeps two separate (non-nested) sub-paths", () => {
+    const d = "M0 0L10 0L10 10L0 10Z M50 0L60 0L60 10L50 10Z";
+    const id = state().addObject({ geo: { kind: "path", d }, init: { x: 0, y: 0 } });
+    state().select([id]);
+    state().contourSelection();
+    expect(mCount((state().doc.objects.find((x) => x.id === id)!.geo as { d: string }).d)).toBe(2);
+  });
+
+  it("R3: ignores a non-path selection", () => {
+    const [img] = state().addObjects([{ geo: image }]);
+    state().select([img]);
+    expect(() => state().contourSelection()).not.toThrow();
+    expect(state().doc.objects).toHaveLength(1);
+  });
+});
+
 describe("guides", () => {
   it("adds guides per axis, sorted, and clears them", () => {
     state().addGuide("x", 50);

@@ -236,6 +236,7 @@ function SelectionSection() {
   const canGroup = objs.length >= 2;
   const canUngroup = objs.some((o) => !!o.groupId);
   const shapeCount = objs.filter((o) => o.geo.kind !== "image").length;
+  const hasPathLike = objs.some((o) => o.geo.kind === "path" || o.geo.kind === "text");
 
   const EyeDropperCtor =
     typeof window !== "undefined"
@@ -470,13 +471,24 @@ function SelectionSection() {
             </div>
           )}
           {shapeCount >= 1 && (
-            <button
-              type="button"
-              onClick={() => store().outlineSelection(3)}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium hover:bg-sunken"
-            >
-              Add outline (3 mm)
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => store().outlineSelection(3)}
+                className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium hover:bg-sunken"
+              >
+                Add outline
+              </button>
+              {hasPathLike && (
+                <button
+                  type="button"
+                  onClick={() => store().contourSelection()}
+                  className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium hover:bg-sunken"
+                >
+                  Remove holes
+                </button>
+              )}
+            </div>
           )}
 
           <Row label="Layer">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { booleanRings, offsetRings, ringsBBox } from "./clip";
+import { booleanRings, offsetRings, pointInRing, removeHoles, ringsBBox } from "./clip";
 import type { Point } from "./types";
 
 const square = (x: number, y: number, s: number): Point[] => [
@@ -21,6 +21,21 @@ describe("offsetRings", () => {
 
   it("returns nothing for an empty input", () => {
     expect(offsetRings([], 2)).toEqual([]);
+  });
+});
+
+describe("removeHoles / pointInRing", () => {
+  it("point-in-ring is true inside and false outside", () => {
+    expect(pointInRing({ x: 5, y: 5 }, square(0, 0, 10))).toBe(true);
+    expect(pointInRing({ x: 50, y: 50 }, square(0, 0, 10))).toBe(false);
+  });
+
+  it("drops a hole inside a larger ring but keeps separate outer rings", () => {
+    const outer = square(0, 0, 20);
+    const hole = square(5, 5, 10);
+    expect(removeHoles([outer, hole])).toEqual([outer]);
+    const twoSeparate = [square(0, 0, 10), square(50, 0, 10)];
+    expect(removeHoles(twoSeparate)).toHaveLength(2);
   });
 });
 
