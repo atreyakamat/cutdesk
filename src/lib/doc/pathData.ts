@@ -236,6 +236,114 @@ export function moveAnchor(segs: readonly Seg[], segIndex: number, dx: number, d
   });
 }
 
+/** Endpoint of a segment (the start of the next one). M/L/C/Q carry x,y. */
+function segEnd(s: Seg): Point | null {
+  return s.t === "Z" ? null : { x: s.x, y: s.y };
+}
+const lerp = (a: Point, b: Point, t: number): Point => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+
+/**
+ * Insert a node on segment `segIndex` at parameter t, splitting it in two.
+ * Lines split linearly; cubics/quadratics split with de Casteljau so the shape
+ * is unchanged. Segment 0 (the M) has no preceding point, so it can't split.
+ */
+export function insertNode(segs: readonly Seg[], segIndex: number, t = 0.5): Seg[] {
+  if (segIndex < 1 || segIndex >= segs.length) return segs.slice();
+  const start = segEnd(segs[segIndex - 1]);
+  const s = segs[segIndex];
+  if (!start || s.t === "Z" || s.t === "M") return segs.slice();
+  const out = segs.slice();
+  if (s.t === "L") {
+    const mid = lerp(start, { x: s.x, y: s.y }, t);
+    out.splice(segIndex, 1, { t: "L", x: mid.x, y: mid.y }, { t: "L", x: s.x, y: s.y });
+  } else if (s.t === "C") {
+    const p1 = { x: s.x1, y: s.y1 };
+    const p2 = { x: s.x2, y: s.y2 };
+    const p3 = { x: s.x, y: s.y };
+    const a = lerp(start, p1, t);
+    const b = lerp(p1, p2, t);
+    const c = lerp(p2, p3, t);
+    const d = lerp(a, b, t);
+    const e = lerp(b, c, t);
+    const f = lerp(d, e, t);
+    out.splice(
+      segIndex,
+      1,
+      { t: "C", x1: a.x, y1: a.y, x2: d.x, y2: d.y, x: f.x, y: f.y },
+      { t: "C", x1: e.x, y1: e.y, x2: c.x, y2: c.y, x: p3.x, y: p3.y },
+    );
+  } else if (s.t === "Q") {
+    const p1 = { x: s.x1, y: s.y1 };
+    const p2 = { x: s.x, y: s.y };
+    const a = lerp(start, p1, t);
+    const b = lerp(p1, p2, t);
+    const c = lerp(a, b, t);
+    out.splice(segIndex, 1, { t: "Q", x1: a.x, y1: a.y, x: c.x, y: c.y }, { t: "Q", x1: b.x, y1: b.y, x: p2.x, y: p2.y });
+  }
+  return out;
+}
+
+/** Remove the anchor owned by `segIndex`. Keeps at least two anchors; never removes the M. */
+export function deleteNode(segs: readonly Seg[], segIndex: number): Seg[] {
+  const anchorCount = segs.filter((s) => s.t !== "Z").length;
+  if (segIndex <= 0 || segIndex >= segs.length || segs[segIndex].t === "Z" || anchorCount <= 2) return segs.slice();
+  return segs.filter((_s, i) => i !== segIndex);
+}
+
+/** Move a bezier control handle: "in" = this segment's own handle, "out" = the next segment's. */
+export function moveHandle(segs: readonly Seg[], segIndex: number, which: "in" | "out", dx: number, dy: number): Seg[] {
+  const target = which === "in" ? segIndex : segIndex + 1;
+  return segs.map((s, i) => {
+    if (i !== target) return s;
+    if (which === "in") {
+      if (s.t === "C") return { ...s, x2: s.x2 + dx, y2: s.y2 + dy };
+      if (s.t === "Q") return { ...s, x1: s.x1 + dx, y1: s.y1 + dy };
+    } else {
+      if (s.t === "C" || s.t === "Q") return { ...s, x1: s.x1 + dx, y1: s.y1 + dy };
+    }
+    return s;
+  });
+}
+
+function evalSeg(start: Point, s: Seg, t: number): Point {
+  if (s.t === "L") return lerp(start, { x: s.x, y: s.y }, t);
+  if (s.t === "C") {
+    const mt = 1 - t;
+    const a = mt * mt * mt;
+    const b = 3 * mt * mt * t;
+    const c = 3 * mt * t * t;
+    const d = t * t * t;
+    return { x: a * start.x + b * s.x1 + c * s.x2 + d * s.x, y: a * start.y + b * s.y1 + c * s.y2 + d * s.y };
+  }
+  if (s.t === "Q") {
+    const mt = 1 - t;
+    return { x: mt * mt * start.x + 2 * mt * t * s.x1 + t * t * s.x, y: mt * mt * start.y + 2 * mt * t * s.y1 + t * t * s.y };
+  }
+  return s.t === "Z" ? start : { x: s.x, y: s.y };
+}
+
+/** Nearest segment + parameter to a point, for inserting a node where the user clicks. */
+export function nearestOnPath(segs: readonly Seg[], pt: Point): { seg: number; t: number } | null {
+  let best: { seg: number; t: number } | null = null;
+  let bestD = Infinity;
+  const N = 16;
+  for (let i = 1; i < segs.length; i++) {
+    const start = segEnd(segs[i - 1]);
+    const s = segs[i];
+    if (!start || s.t === "Z" || s.t === "M") continue;
+    for (let k = 0; k <= N; k++) {
+      const t = k / N;
+      const p = evalSeg(start, s, t);
+      const d = (p.x - pt.x) ** 2 + (p.y - pt.y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = { seg: i, t };
+      }
+    }
+  }
+  return best;
+}
+
 export function serializePath(segs: readonly Seg[], precision = 3): string {
   const f = (n: number) => fmt(n, precision);
   return segs

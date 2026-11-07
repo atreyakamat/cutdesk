@@ -542,6 +542,50 @@ describe("node editing", () => {
     state().removeObjects([id]);
     expect(state().nodeEditId).toBeNull();
   });
+
+  const cmds = (d: string) => (d.match(/[MLCQ]/g) ?? []).length;
+  const dOf = (id: string) => (state().doc.objects.find((o) => o.id === id)!.geo as { d: string }).d;
+
+  it("inserts a node where the user clicks", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0" }, init: { x: 0, y: 0 } });
+    state().enterNodeEdit(id);
+    state().insertNodeWorld(5, 1);
+    expect(cmds(dOf(id))).toBe(3); // M, L, L
+  });
+
+  it("deletes the active node", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0L10 10" }, init: { x: 0, y: 0 } });
+    state().enterNodeEdit(id);
+    state().setActiveNode(1);
+    state().deleteActiveNode();
+    expect(cmds(dOf(id))).toBe(2);
+    expect(state().activeNode).toBeNull();
+  });
+
+  it("moves a bezier handle to a world point", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0C0 10 10 10 10 0" }, init: { x: 0, y: 0 } });
+    state().enterNodeEdit(id);
+    state().moveHandleWorld(1, "in", 20, 10); // identity transform → local (20,10)
+    expect(dOf(id)).toContain("20 10");
+  });
+
+  it("R4: won't delete when it would leave fewer than two nodes", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0" }, init: { x: 0, y: 0 } });
+    state().enterNodeEdit(id);
+    state().setActiveNode(1);
+    state().deleteActiveNode();
+    expect(cmds(dOf(id))).toBe(2); // unchanged
+  });
+
+  it("R5: insert/delete/handle are no-ops outside node-edit mode", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0" }, init: { x: 0, y: 0 } });
+    state().exitNodeEdit();
+    const before = dOf(id);
+    state().insertNodeWorld(5, 1);
+    state().deleteActiveNode();
+    state().moveHandleWorld(1, "in", 5, 5);
+    expect(dOf(id)).toBe(before);
+  });
 });
 
 describe("contour (remove holes)", () => {

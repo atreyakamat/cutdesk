@@ -15,7 +15,7 @@ import {
   worldPolylines,
 } from "@/lib/doc/geometry";
 import { booleanRings, offsetRings, pointInRing, ringArea, ringsBBox, ringsToPathData, type BooleanOp, type Ring } from "@/lib/doc/clip";
-import { flattenSegs, moveAnchor, parsePath, segsBBox, serializePath, transformPoint, type Seg } from "@/lib/doc/pathData";
+import { deleteNode, flattenSegs, insertNode, moveAnchor, moveHandle, nearestOnPath, parsePath, segsBBox, serializePath, transformPoint, type Seg } from "@/lib/doc/pathData";
 import { arcWarpPath } from "@/lib/doc/arcWarp";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
@@ -113,6 +113,8 @@ interface EditorState {
   cursor: { x: number; y: number } | null;
   /** Id of the path whose anchor points are being edited, if any. */
   nodeEditId: string | null;
+  /** The segment index of the selected node (for delete / handle display). */
+  activeNode: number | null;
 
   // document
   commitDoc: (fn: (doc: Doc) => Doc, opts?: CommitOptions) => void;
@@ -155,6 +157,10 @@ interface EditorState {
   enterNodeEdit: (id: string) => void;
   exitNodeEdit: () => void;
   moveNodeWorld: (segIndex: number, wx: number, wy: number) => void;
+  insertNodeWorld: (wx: number, wy: number) => void;
+  setActiveNode: (seg: number | null) => void;
+  deleteActiveNode: () => void;
+  moveHandleWorld: (segIndex: number, which: "in" | "out", wx: number, wy: number) => void;
   restack: (mode: StackMode) => void;
   renameObject: (id: string, name: string) => void;
   moveToLayer: (ids: readonly string[], layerId: string) => void;
@@ -287,6 +293,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     contextMenu: null,
     cursor: null,
     nodeEditId: null,
+    activeNode: null,
 
     // ----------------------------------------------------------------- document
 
@@ -870,10 +877,63 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     enterNodeEdit: (id) => {
       const o = get().doc.objects.find((x) => x.id === id);
-      if (o && o.geo.kind === "path") set({ nodeEditId: id, selection: [id] });
+      if (o && o.geo.kind === "path") set({ nodeEditId: id, selection: [id], activeNode: null });
     },
 
-    exitNodeEdit: () => set((s) => (s.nodeEditId ? { nodeEditId: null } : s)),
+    exitNodeEdit: () => set((s) => (s.nodeEditId || s.activeNode !== null ? { nodeEditId: null, activeNode: null } : s)),
+
+    setActiveNode: (seg) => set((s) => (s.activeNode === seg ? s : { activeNode: seg })),
+
+    insertNodeWorld: (wx, wy) => {
+      const id = get().nodeEditId;
+      if (!id || !Number.isFinite(wx) || !Number.isFinite(wy)) return;
+      const o = get().doc.objects.find((x) => x.id === id);
+      if (!o || o.geo.kind !== "path") return;
+      const inv = invertMatrix(matrixOf(o));
+      if (!inv) return;
+      const local = transformPoint(inv, wx, wy);
+      const segs = parsePath(o.geo.d);
+      const hit = nearestOnPath(segs, local);
+      if (!hit) return;
+      const next = insertNode(segs, hit.seg, hit.t);
+      get().mapObjects([id], (obj) => (obj.geo.kind === "path" ? { ...obj, geo: { ...obj.geo, d: serializePath(next, 3) } } : obj));
+      set({ activeNode: null });
+    },
+
+    deleteActiveNode: () => {
+      const id = get().nodeEditId;
+      const seg = get().activeNode;
+      if (!id || seg == null) return;
+      const o = get().doc.objects.find((x) => x.id === id);
+      if (!o || o.geo.kind !== "path") return;
+      const segs = parsePath(o.geo.d);
+      const next = deleteNode(segs, seg);
+      if (serializePath(next) === serializePath(segs)) {
+        get().notify("info", "Can't delete that node — a path needs at least two points.");
+        return;
+      }
+      get().mapObjects([id], (obj) => (obj.geo.kind === "path" ? { ...obj, geo: { ...obj.geo, d: serializePath(next, 3) } } : obj));
+      set({ activeNode: null });
+    },
+
+    moveHandleWorld: (segIndex, which, wx, wy) => {
+      const id = get().nodeEditId;
+      if (!id || !Number.isFinite(wx) || !Number.isFinite(wy)) return;
+      const o = get().doc.objects.find((x) => x.id === id);
+      if (!o || o.geo.kind !== "path") return;
+      const inv = invertMatrix(matrixOf(o));
+      if (!inv) return;
+      const local = transformPoint(inv, wx, wy);
+      const segs = parsePath(o.geo.d);
+      const seg = segs[which === "in" ? segIndex : segIndex + 1];
+      if (!seg) return;
+      let cur: { x: number; y: number } | null = null;
+      if (which === "in") cur = seg.t === "C" ? { x: seg.x2, y: seg.y2 } : seg.t === "Q" ? { x: seg.x1, y: seg.y1 } : null;
+      else cur = seg.t === "C" || seg.t === "Q" ? { x: seg.x1, y: seg.y1 } : null;
+      if (!cur) return;
+      const next = moveHandle(segs, segIndex, which, local.x - cur.x, local.y - cur.y);
+      get().mapObjects([id], (obj) => (obj.geo.kind === "path" ? { ...obj, geo: { ...obj.geo, d: serializePath(next, 3) } } : obj), "handle");
+    },
 
     moveNodeWorld: (segIndex, wx, wy) => {
       const id = get().nodeEditId;

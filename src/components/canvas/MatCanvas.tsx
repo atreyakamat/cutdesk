@@ -2,7 +2,7 @@
 
 import type Konva from "konva";
 import { Pause, Play, RotateCcw, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Ellipse, Layer, Path, Rect, Stage, Transformer } from "react-konva";
 import { buildCutPlan } from "@/lib/doc/cutPlan";
 import { bboxesIntersect, matrixOf, unionBBox, worldAABB } from "@/lib/doc/geometry";
@@ -80,6 +80,7 @@ export function MatCanvas() {
   const guidesX = useEditor((s) => s.guidesX);
   const guidesY = useEditor((s) => s.guidesY);
   const nodeEditId = useEditor((s) => s.nodeEditId);
+  const activeNode = useEditor((s) => s.activeNode);
   const setViewport = useEditor((s) => s.setViewport);
 
   const nodeEditObj = useMemo(
@@ -91,6 +92,22 @@ export function MatCanvas() {
     const m = matrixOf(nodeEditObj);
     return pathAnchors(parsePath(nodeEditObj.geo.d)).map((a) => ({ seg: a.seg, ...transformPoint(m, a.x, a.y) }));
   }, [nodeEditObj]);
+  // Bezier handles for the selected node (its in/out control points), in world mm.
+  const nodeHandles = useMemo(() => {
+    if (!nodeEditObj || nodeEditObj.geo.kind !== "path" || activeNode == null) return [];
+    const m = matrixOf(nodeEditObj);
+    const segs = parsePath(nodeEditObj.geo.d);
+    const seg = segs[activeNode];
+    if (!seg || seg.t === "Z") return [];
+    const anchor = transformPoint(m, seg.x, seg.y);
+    const out: { which: "in" | "out"; anchor: Point; x: number; y: number }[] = [];
+    const inLocal = seg.t === "C" ? { x: seg.x2, y: seg.y2 } : seg.t === "Q" ? { x: seg.x1, y: seg.y1 } : null;
+    if (inLocal) out.push({ which: "in", anchor, ...transformPoint(m, inLocal.x, inLocal.y) });
+    const nseg = segs[activeNode + 1];
+    const outLocal = nseg && (nseg.t === "C" || nseg.t === "Q") ? { x: nseg.x1, y: nseg.y1 } : null;
+    if (outLocal) out.push({ which: "out", anchor, ...transformPoint(m, outLocal.x, outLocal.y) });
+    return out;
+  }, [nodeEditObj, activeNode]);
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
@@ -177,21 +194,25 @@ export function MatCanvas() {
     [cancelPen],
   );
 
-  const onDblClick = useCallback(
-    (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-      const st = useEditor.getState();
-      if (st.tool === "pen") {
-        finishPen(false);
-        return;
-      }
-      // Double-clicking a path enters node editing.
-      if (st.tool === "select" && e.target.name() === "obj") {
-        const o = st.doc.objects.find((x) => x.id === e.target.id());
-        if (o?.geo.kind === "path") st.enterNodeEdit(e.target.id());
-      }
-    },
-    [finishPen],
-  );
+  const onDblClick = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const st = useEditor.getState();
+    if (st.tool === "pen") {
+      finishPen(false);
+      return;
+    }
+    if (st.tool !== "select") return;
+    // While editing a path, a double-click on it inserts a node at that point.
+    if (st.nodeEditId && e.target.name() === "obj" && e.target.id() === st.nodeEditId) {
+      const p = pointer();
+      if (p) st.insertNodeWorld(p.x, p.y);
+      return;
+    }
+    // Otherwise double-clicking a path enters node editing.
+    if (e.target.name() === "obj") {
+      const o = st.doc.objects.find((x) => x.id === e.target.id());
+      if (o?.geo.kind === "path") st.enterNodeEdit(e.target.id());
+    }
+  };
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -210,6 +231,12 @@ export function MatCanvas() {
           e.preventDefault();
           setPen((p) => ({ ...p, nodes: p.nodes.slice(0, -1) }));
         }
+      }
+      const st0 = useEditor.getState();
+      if ((e.key === "Delete" || e.key === "Backspace") && st0.nodeEditId && st0.activeNode != null) {
+        e.preventDefault();
+        st0.deleteActiveNode();
+        return;
       }
       if (e.key === "Escape") {
         if (useEditor.getState().nodeEditId) useEditor.getState().exitNodeEdit();
@@ -759,24 +786,52 @@ export function MatCanvas() {
           </Layer>
           <Layer>
             {userGuides}
-            {nodeEditObj &&
-              nodeAnchors.map((a) => (
-                <Rect
-                  key={a.seg}
-                  name="node"
-                  x={a.x - 5 / view.scale}
-                  y={a.y - 5 / view.scale}
-                  width={10 / view.scale}
-                  height={10 / view.scale}
-                  fill="#ffffff"
-                  stroke={SELECT_BLUE}
-                  strokeWidth={1.4}
-                  strokeScaleEnabled={false}
-                  draggable
-                  onDragMove={(e) => useEditor.getState().moveNodeWorld(a.seg, e.target.x() + 5 / view.scale, e.target.y() + 5 / view.scale)}
-                  onDragEnd={(e) => useEditor.getState().moveNodeWorld(a.seg, e.target.x() + 5 / view.scale, e.target.y() + 5 / view.scale)}
-                />
-              ))}
+            {nodeEditObj && (
+              <>
+                {/* Bezier handles for the selected node */}
+                {nodeHandles.map((h) => (
+                  <Fragment key={h.which}>
+                    <Path
+                      data={`M${h.anchor.x} ${h.anchor.y}L${h.x} ${h.y}`}
+                      stroke={SELECT_BLUE}
+                      strokeWidth={1}
+                      strokeScaleEnabled={false}
+                      listening={false}
+                    />
+                    <Circle
+                      name="node"
+                      x={h.x}
+                      y={h.y}
+                      radius={4.5 / view.scale}
+                      fill={SELECT_BLUE}
+                      draggable
+                      onDragMove={(e) => useEditor.getState().moveHandleWorld(activeNode!, h.which, e.target.x(), e.target.y())}
+                      onDragEnd={(e) => useEditor.getState().moveHandleWorld(activeNode!, h.which, e.target.x(), e.target.y())}
+                    />
+                  </Fragment>
+                ))}
+                {/* Anchor points */}
+                {nodeAnchors.map((a) => (
+                  <Rect
+                    key={a.seg}
+                    name="node"
+                    x={a.x - 5 / view.scale}
+                    y={a.y - 5 / view.scale}
+                    width={10 / view.scale}
+                    height={10 / view.scale}
+                    fill={a.seg === activeNode ? SELECT_BLUE : "#ffffff"}
+                    stroke={SELECT_BLUE}
+                    strokeWidth={1.4}
+                    strokeScaleEnabled={false}
+                    draggable
+                    onMouseDown={() => useEditor.getState().setActiveNode(a.seg)}
+                    onTouchStart={() => useEditor.getState().setActiveNode(a.seg)}
+                    onDragMove={(e) => useEditor.getState().moveNodeWorld(a.seg, e.target.x() + 5 / view.scale, e.target.y() + 5 / view.scale)}
+                    onDragEnd={(e) => useEditor.getState().moveNodeWorld(a.seg, e.target.x() + 5 / view.scale, e.target.y() + 5 / view.scale)}
+                  />
+                ))}
+              </>
+            )}
             {guideShapes}
             {spacingShapes}
             {draftShape}

@@ -92,6 +92,7 @@ export function useShortcuts(): void {
           return;
         case "Delete":
         case "Backspace":
+          if (st.nodeEditId) return; // node deletion is handled on the canvas
           if (st.tool === "select" && st.selection.length) {
             e.preventDefault();
             st.removeObjects(st.selection);
