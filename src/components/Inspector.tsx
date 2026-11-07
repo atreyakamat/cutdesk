@@ -18,6 +18,8 @@ import {
   FlipVertical2,
   Group,
   Link2,
+  Pipette,
+  Plus,
   Trash2,
   Ungroup,
   Unlink2,
@@ -30,6 +32,7 @@ import { bboxSize, unionBBox, worldAABB } from "@/lib/doc/geometry";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM } from "@/lib/doc/mats";
 import { fromMm, formatLength, toMm, unitPrecision } from "@/lib/doc/units";
 import { FONTS } from "@/lib/text/fonts";
+import { deleteStylePreset, listStylePresets, saveStylePreset } from "@/lib/ui/stylePresets";
 import type { FontId, MatPresetId, Unit } from "@/lib/doc/types";
 import { selectedObjectsOf, useEditor } from "@/store/editorStore";
 import { Row, Section, Select } from "./ui/Controls";
@@ -213,6 +216,11 @@ function SelectionSection() {
   const unit = useEditor((s) => s.doc.unit);
   const store = useEditor.getState;
   const [lock, setLock] = useState(true);
+  const [presetVer, setPresetVer] = useState(0);
+  const presets = useMemo(() => {
+    void presetVer; // re-read local storage after a save/delete
+    return listStylePresets();
+  }, [presetVer]);
 
   const box = useMemo(() => unionBBox(objs.map(worldAABB)), [objs]);
   if (!box) return null;
@@ -227,6 +235,23 @@ function SelectionSection() {
   const opacityPct = Math.round((single?.style?.opacity ?? objs[0].style?.opacity ?? 1) * 100);
   const canGroup = objs.length >= 2;
   const canUngroup = objs.some((o) => !!o.groupId);
+
+  const EyeDropperCtor =
+    typeof window !== "undefined"
+      ? (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper
+      : undefined;
+  const pickColor = async () => {
+    if (!EyeDropperCtor) return;
+    try {
+      const { sRGBHex } = await new EyeDropperCtor().open();
+      if (/^#[0-9a-fA-F]{6}$/.test(sRGBHex)) store().setStyle(ids, { fill: sRGBHex });
+    } catch {
+      /* the picker was dismissed */
+    }
+  };
+  const savePreset = () => {
+    if (fill && saveStylePreset(fill, opacityPct / 100)) setPresetVer((v) => v + 1);
+  };
 
   return (
     <>
@@ -334,6 +359,56 @@ function SelectionSection() {
               />
               <span className="w-9 text-right tabular-nums">{opacityPct}%</span>
             </label>
+
+            <div className="flex items-center gap-2">
+              {EyeDropperCtor && (
+                <button
+                  type="button"
+                  onClick={() => void pickColor()}
+                  className="inline-flex h-7 items-center gap-1 rounded-control border border-line bg-raised px-2 text-xs hover:bg-sunken"
+                >
+                  <Pipette className="size-3.5" aria-hidden="true" />
+                  Pick
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={savePreset}
+                disabled={!fill}
+                className="inline-flex h-7 items-center gap-1 rounded-control border border-line bg-raised px-2 text-xs hover:bg-sunken disabled:opacity-40"
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                Save style
+              </button>
+            </div>
+
+            {presets.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {presets.map((p) => (
+                  <span key={p.id} className="group relative inline-block">
+                    <button
+                      type="button"
+                      aria-label={`Apply fill ${p.fill}`}
+                      title={p.fill}
+                      onClick={() => store().setStyle(ids, { fill: p.fill, opacity: p.opacity })}
+                      style={{ backgroundColor: p.fill, opacity: p.opacity }}
+                      className="size-6 rounded-full border border-line"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Delete preset"
+                      onClick={() => {
+                        deleteStylePreset(p.id);
+                        setPresetVer((v) => v + 1);
+                      }}
+                      className="absolute -right-1 -top-1 hidden size-3.5 place-items-center rounded-full bg-ink text-[9px] leading-none text-on-ink group-hover:grid"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </Section>
       )}

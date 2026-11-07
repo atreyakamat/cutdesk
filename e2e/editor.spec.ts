@@ -132,6 +132,19 @@ test.describe("CutDesk editor", () => {
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   });
 
+  test("saves a style preset and shows it as a swatch", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await page.getByRole("button", { name: "Rectangle" }).click();
+    const c = await matCentre(page);
+    await page.mouse.click(c.x, c.y);
+    await expect(page.getByText(/1 object/)).toBeVisible();
+
+    await page.getByRole("button", { name: "Fill #FF8FA3" }).click();
+    await page.getByRole("button", { name: "Save style" }).click();
+    await expect(page.getByRole("button", { name: /Apply fill #FF8FA3/i })).toBeVisible();
+  });
+
   test("exports the design as a PNG", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
