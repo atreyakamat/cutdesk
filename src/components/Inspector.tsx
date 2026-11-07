@@ -235,6 +235,7 @@ function SelectionSection() {
   const opacityPct = Math.round((single?.style?.opacity ?? objs[0].style?.opacity ?? 1) * 100);
   const canGroup = objs.length >= 2;
   const canUngroup = objs.some((o) => !!o.groupId);
+  const shapeCount = objs.filter((o) => o.geo.kind !== "image").length;
 
   const EyeDropperCtor =
     typeof window !== "undefined"
@@ -446,6 +447,38 @@ function SelectionSection() {
             <IconButton size="sm" icon={Group} label="Group" shortcut="Ctrl G" disabled={!canGroup} onClick={() => store().group()} />
             <IconButton size="sm" icon={Ungroup} label="Ungroup" shortcut="Ctrl Shift G" disabled={!canUngroup} onClick={() => store().ungroup()} />
           </div>
+          {shapeCount >= 2 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-ink-faint">Combine</span>
+              <div className="grid grid-cols-2 gap-1">
+                {([
+                  ["union", "Union"],
+                  ["difference", "Subtract"],
+                  ["intersection", "Intersect"],
+                  ["xor", "Exclude"],
+                ] as const).map(([op, label]) => (
+                  <button
+                    key={op}
+                    type="button"
+                    onClick={() => store().combineSelection(op)}
+                    className="h-7 rounded-control border border-line bg-raised text-xs font-medium hover:bg-sunken"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {shapeCount >= 1 && (
+            <button
+              type="button"
+              onClick={() => store().outlineSelection(3)}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium hover:bg-sunken"
+            >
+              Add outline (3 mm)
+            </button>
+          )}
+
           <Row label="Layer">
             <Select
               aria-label="Move to layer"

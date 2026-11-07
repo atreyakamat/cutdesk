@@ -10,7 +10,9 @@ import {
   translateObject,
   unionBBox,
   worldAABB,
+  worldPolylines,
 } from "@/lib/doc/geometry";
+import { booleanRings, offsetRings, ringsBBox, ringsToPathData, type BooleanOp, type Ring } from "@/lib/doc/clip";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
@@ -141,6 +143,8 @@ interface EditorState {
   flip: (axis: "x" | "y") => void;
   align: (mode: AlignMode) => void;
   distribute: (axis: "h" | "v") => void;
+  outlineSelection: (deltaMm: number) => void;
+  combineSelection: (op: BooleanOp) => void;
   restack: (mode: StackMode) => void;
   renameObject: (id: string, name: string) => void;
   moveToLayer: (ids: readonly string[], layerId: string) => void;
@@ -751,6 +755,69 @@ export const useEditor = create<EditorState>()((set, get) => {
           return horiz ? translateObject(o, d, 0) : translateObject(o, 0, d);
         },
       );
+    },
+
+    outlineSelection: (deltaMm) => {
+      const objs = selectedObjects().filter((o) => o.geo.kind !== "image");
+      if (objs.length === 0) {
+        get().notify("info", "Select a shape to add an outline around it.");
+        return;
+      }
+      const rings = objs.flatMap((o) => worldPolylines(o).map((pl) => pl.points));
+      const merged = booleanRings(rings, [], "union");
+      const out = offsetRings(merged.length ? merged : rings, deltaMm);
+      const bb = ringsBBox(out);
+      if (out.length === 0 || !bb) {
+        get().notify("error", "Couldn't build an outline for that shape.");
+        return;
+      }
+      const shifted = out.map((r) => r.map((p) => ({ x: p.x - bb.minX, y: p.y - bb.minY })));
+      get().addObject({ geo: { kind: "path", d: ringsToPathData(shifted) }, name: "Outline", init: { x: bb.minX, y: bb.minY } });
+    },
+
+    combineSelection: (op) => {
+      const sel = new Set(get().selection);
+      // Document order is z-order; the bottom-most shape is the subject for difference.
+      const ordered = get().doc.objects.filter((o) => sel.has(o.id) && o.geo.kind !== "image");
+      if (ordered.length < 2) {
+        get().notify("info", "Select two or more shapes to combine.");
+        return;
+      }
+      const ringsOf = (o: DesignObject): Ring[] => worldPolylines(o).map((pl) => pl.points);
+      let result: Ring[];
+      if (op === "union") {
+        result = booleanRings(ordered.flatMap(ringsOf), [], "union");
+      } else if (op === "difference") {
+        result = booleanRings(ringsOf(ordered[0]), ordered.slice(1).flatMap(ringsOf), "difference");
+      } else {
+        result = ordered
+          .map(ringsOf)
+          .reduce<Ring[] | null>((acc, r) => (acc === null ? r : booleanRings(acc, r, op)), null) ?? [];
+      }
+      const bb = ringsBBox(result);
+      if (result.length === 0 || !bb) {
+        get().notify("info", "Combining those shapes left nothing.");
+        return;
+      }
+      const shifted = result.map((r) => r.map((p) => ({ x: p.x - bb.minX, y: p.y - bb.minY })));
+      const keep = ordered[0];
+      const id = newId();
+      const removeIds = new Set(ordered.map((o) => o.id));
+      get().commitDoc((doc) => {
+        const objects = doc.objects.filter((o) => !removeIds.has(o.id));
+        objects.push({
+          id,
+          name: "Combined",
+          layerId: keep.layerId,
+          ...DEFAULT_TRANSFORM,
+          x: bb.minX,
+          y: bb.minY,
+          geo: { kind: "path", d: ringsToPathData(shifted) },
+          style: keep.style,
+        });
+        return { ...doc, objects };
+      });
+      set({ selection: [id] });
     },
 
     restack: (mode) => {

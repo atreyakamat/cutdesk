@@ -433,6 +433,70 @@ describe("copy / cut / paste", () => {
   });
 });
 
+describe("outline and boolean ops", () => {
+  it("adds an offset outline around a shape", () => {
+    const id = state().addObject({ geo: rect(10, 10), init: { x: 10, y: 10 } });
+    state().select([id]);
+    state().outlineSelection(2);
+    expect(state().doc.objects).toHaveLength(2);
+    const outline = state().doc.objects.find((o) => o.name === "Outline")!;
+    const box = worldAABB(outline);
+    expect(box.maxX - box.minX).toBeCloseTo(14, 0); // 10 + 2*2
+  });
+
+  it("unions two overlapping shapes into one", () => {
+    const [a, b] = state().addObjects([
+      { geo: rect(10, 10), init: { x: 0, y: 0 } },
+      { geo: rect(10, 10), init: { x: 5, y: 5 } },
+    ]);
+    state().select([a, b]);
+    state().combineSelection("union");
+    expect(state().doc.objects).toHaveLength(1);
+    const box = worldAABB(state().doc.objects[0]);
+    expect(box.minX).toBeCloseTo(0, 0);
+    expect(box.maxX).toBeCloseTo(15, 0);
+  });
+
+  it("subtracts the top shape from the bottom (difference)", () => {
+    const [a, b] = state().addObjects([
+      { geo: rect(10, 10), init: { x: 0, y: 0 } },
+      { geo: rect(10, 10), init: { x: 5, y: 0 } },
+    ]);
+    state().select([a, b]);
+    state().combineSelection("difference");
+    expect(state().doc.objects).toHaveLength(1);
+    expect(worldAABB(state().doc.objects[0]).maxX).toBeCloseTo(5, 0);
+  });
+
+  // --- Adversarial hardening -----------------------------------------------
+
+  it("R1: ignores images and needs two real shapes to combine", () => {
+    const [img, r1, r2] = state().addObjects([{ geo: image }, { geo: rect(10, 10) }, { geo: rect(10, 10), init: { x: 5, y: 5 } }]);
+    state().select([img, r1, r2]);
+    state().combineSelection("union");
+    // The two shapes merge into one; the image is untouched → 2 objects remain.
+    expect(state().doc.objects).toHaveLength(2);
+    expect(state().doc.objects.some((o) => o.geo.kind === "image")).toBe(true);
+  });
+
+  it("R2: an outline that collapses to nothing adds no object", () => {
+    const id = state().addObject({ geo: rect(10, 10) });
+    state().select([id]);
+    state().outlineSelection(-50);
+    expect(state().doc.objects).toHaveLength(1); // nothing added
+  });
+
+  it("R3: a boolean that yields nothing keeps the originals (no data loss)", () => {
+    const [a, b] = state().addObjects([
+      { geo: rect(10, 10), init: { x: 0, y: 0 } },
+      { geo: rect(10, 10), init: { x: 0, y: 0 } },
+    ]);
+    state().select([a, b]);
+    state().combineSelection("difference"); // identical → empty
+    expect(state().doc.objects).toHaveLength(2); // untouched
+  });
+});
+
 describe("guides", () => {
   it("adds guides per axis, sorted, and clears them", () => {
     state().addGuide("x", 50);
