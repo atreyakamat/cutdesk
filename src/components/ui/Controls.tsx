@@ -47,7 +47,7 @@ export function Select({ className, children, ...rest }: SelectProps) {
     <span className="relative inline-flex min-w-0">
       <select
         className={cn(
-          "h-8 w-full min-w-0 appearance-none truncate rounded-control border border-line bg-white py-0 pl-2.5 pr-7 text-sm text-ink hover:border-line-strong focus:border-ink disabled:opacity-45",
+          "h-8 w-full min-w-0 appearance-none truncate rounded-control border border-line bg-raised py-0 pl-2.5 pr-7 text-sm text-ink hover:border-line-strong focus:border-ink disabled:opacity-45",
           className,
         )}
         {...rest}
@@ -90,10 +90,10 @@ export function Button({
       type="button"
       className={cn(
         "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45",
-        variant === "primary" && "bg-ink text-white hover:bg-[#233a2f] active:bg-black",
-        variant === "secondary" && "border border-line bg-white text-ink hover:border-line-strong hover:bg-sunken",
+        variant === "primary" && "bg-ink text-on-ink hover:opacity-90 active:opacity-80",
+        variant === "secondary" && "border border-line bg-raised text-ink hover:border-line-strong hover:bg-sunken",
         variant === "ghost" && "text-ink hover:bg-sunken",
-        variant === "danger" && "border border-line bg-white text-blade hover:border-blade/50 hover:bg-blade/5",
+        variant === "danger" && "border border-line bg-raised text-blade hover:border-blade/50 hover:bg-blade/5",
         className,
       )}
       {...rest}

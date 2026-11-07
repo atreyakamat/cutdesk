@@ -55,6 +55,12 @@ export function useShortcuts(): void {
         st.duplicateObjects(st.selection);
         return;
       }
+      if (mod && key === "g") {
+        e.preventDefault();
+        if (e.shiftKey) st.ungroup();
+        else st.group();
+        return;
+      }
       if (mod && key === "0") {
         e.preventDefault();
         st.fitView();

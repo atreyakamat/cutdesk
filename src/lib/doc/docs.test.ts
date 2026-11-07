@@ -72,9 +72,29 @@ describe("exportSvg", () => {
 });
 
 describe("project files", () => {
-  it("round-trips a document", () => {
+  const ser = (...pages: ReturnType<typeof sampleDoc>[]) => serializeProject({ pages, activePage: 0 });
+
+  it("round-trips a single-page project", () => {
     const doc = sampleDoc();
-    expect(parseProject(serializeProject(doc))).toEqual(doc);
+    expect(parseProject(ser(doc))).toEqual({ pages: [doc], activePage: 0 });
+  });
+
+  it("round-trips a multi-page project and keeps the active page", () => {
+    const a = sampleDoc();
+    const b = { ...sampleDoc(), name: "Page 2" };
+    const text = serializeProject({ pages: [a, b], activePage: 1 });
+    expect(parseProject(text)).toEqual({ pages: [a, b], activePage: 1 });
+  });
+
+  it("opens a legacy v1 (single doc) file as one page", () => {
+    const doc = sampleDoc();
+    const legacy = JSON.stringify({ format: "cutdesk", version: 1, doc });
+    expect(parseProject(legacy)).toEqual({ pages: [doc], activePage: 0 });
+  });
+
+  it("clamps an out-of-range active page", () => {
+    const text = serializeProject({ pages: [sampleDoc()], activePage: 9 });
+    expect(parseProject(text).activePage).toBe(0);
   });
 
   it("rejects text that isn't JSON", () => {
@@ -86,22 +106,22 @@ describe("project files", () => {
   });
 
   it("explains where a damaged file is wrong", () => {
-    const bad = JSON.parse(serializeProject(sampleDoc()));
-    bad.doc.mat.width = -5;
+    const bad = JSON.parse(ser(sampleDoc()));
+    bad.pages[0].mat.width = -5;
     expect(() => parseProject(JSON.stringify(bad))).toThrow(/damaged.*mat\.width/);
   });
 
   it("moves objects on a missing layer to the first layer", () => {
-    const bad = JSON.parse(serializeProject(sampleDoc()));
-    bad.doc.objects[0].layerId = "gone";
-    const doc = parseProject(JSON.stringify(bad));
-    expect(doc.objects[0].layerId).toBe(doc.layers[0].id);
+    const bad = JSON.parse(ser(sampleDoc()));
+    bad.pages[0].objects[0].layerId = "gone";
+    const { pages } = parseProject(JSON.stringify(bad));
+    expect(pages[0].objects[0].layerId).toBe(pages[0].layers[0].id);
   });
 
   it("drops duplicate object ids", () => {
-    const bad = JSON.parse(serializeProject(sampleDoc()));
-    bad.doc.objects.push({ ...bad.doc.objects[0] });
-    expect(parseProject(JSON.stringify(bad)).objects).toHaveLength(3);
+    const bad = JSON.parse(ser(sampleDoc()));
+    bad.pages[0].objects.push({ ...bad.pages[0].objects[0] });
+    expect(parseProject(JSON.stringify(bad)).pages[0].objects).toHaveLength(3);
   });
 });
 

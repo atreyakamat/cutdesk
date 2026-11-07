@@ -25,7 +25,7 @@ function LayerRow({ layer, count }: { layer: Layer; count: number }) {
       dragListener={false}
       dragControls={controls}
       className={cn(
-        "list-none rounded-control border bg-white",
+        "list-none rounded-control border bg-raised",
         active ? "border-ink" : "border-line hover:border-line-strong",
       )}
     >

@@ -23,10 +23,10 @@ export function Tip({ label, shortcut, side = "bottom", children }: Props) {
         <T.Content
           side={side}
           sideOffset={8}
-          className="pop-in z-[60] flex items-center gap-2 rounded-control bg-ink px-2.5 py-1.5 text-xs font-medium text-white shadow-pop"
+          className="pop-in z-[60] flex items-center gap-2 rounded-control bg-ink px-2.5 py-1.5 text-xs font-medium text-on-ink shadow-pop"
         >
           {label}
-          {shortcut ? <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-sans text-[11px] text-white/80">{shortcut}</kbd> : null}
+          {shortcut ? <kbd className="rounded bg-on-ink/15 px-1.5 py-0.5 font-sans text-[11px] text-on-ink/80">{shortcut}</kbd> : null}
         </T.Content>
       </T.Portal>
     </T.Root>

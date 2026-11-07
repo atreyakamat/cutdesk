@@ -1,0 +1,10 @@
+# Run the CutDesk web app:  docker compose up --build  →  http://localhost:8304
+# Port 8304 matches the House of Stix "Studio tools" range (see docs/houseofstix.md).
+# This serves the editor UI. Talking to a cutting machine over USB/Bluetooth needs
+# host hardware access, so use the Tauri desktop app or run the bridge on the host.
+services:
+  web:
+    build: .
+    ports:
+      - "8304:3000"
+    restart: unless-stopped

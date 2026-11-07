@@ -1,6 +1,7 @@
 import { EXPORT_COLOR } from "./defaults";
 import { worldSegs } from "./geometry";
 import { serializePath } from "./pathData";
+import { registrationMarksSvg, type RegMarkOptions } from "./registration";
 import type { Doc, Operation } from "./types";
 
 export interface ExportOptions {
@@ -87,4 +88,15 @@ export type ExportKind = "all" | "cut" | "score" | "draw";
 
 export function exportFileName(doc: Doc, kind: ExportKind): string {
   return `${slugify(doc.name)}${kind === "all" ? "" : `-${kind}`}.svg`;
+}
+
+/**
+ * A print-ready sheet: the full design plus registration marks in three corners.
+ * Print this, then run the cut export — both share the mat's mm coordinates, so
+ * the cut lines land on the printed art.
+ */
+export function exportPrintable(doc: Doc, options?: Partial<RegMarkOptions>): string {
+  const base = exportSvg(doc);
+  const marks = registrationMarksSvg(doc.mat, options);
+  return base.replace("\n</svg>\n", `\n${marks}\n</svg>\n`);
 }

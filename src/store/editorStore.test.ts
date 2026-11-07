@@ -117,6 +117,116 @@ describe("history", () => {
   });
 });
 
+describe("pages", () => {
+  it("starts with a single page that mirrors the active doc", () => {
+    expect(state().pages).toHaveLength(1);
+    expect(state().activePage).toBe(0);
+    expect(state().pages[0]).toBe(state().doc);
+  });
+
+  it("adds a blank page and switches to it, keeping pages[active] in sync with doc", () => {
+    const id = state().addObject({ geo: rect(), init: { x: 5, y: 5 } });
+    state().addPage();
+    expect(state().pages).toHaveLength(2);
+    expect(state().activePage).toBe(1);
+    expect(state().doc.objects).toHaveLength(0); // new page is empty
+    expect(state().pages[0].objects.some((o) => o.id === id)).toBe(true); // page 1 kept its shape
+    expect(state().pages[1]).toBe(state().doc);
+  });
+
+  it("keeps each page's own objects and undo history when switching", () => {
+    state().addObject({ geo: rect() }); // page 0 has 1 object
+    state().addPage();
+    state().addObject({ geo: rect() });
+    state().addObject({ geo: rect() }); // page 1 has 2 objects
+    state().selectPage(0);
+    expect(state().doc.objects).toHaveLength(1);
+    state().selectPage(1);
+    expect(state().doc.objects).toHaveLength(2);
+    state().undo(); // undo only affects page 1
+    expect(state().doc.objects).toHaveLength(1);
+    expect(state().pages[0].objects).toHaveLength(1);
+  });
+
+  it("duplicates a page with independent object ids", () => {
+    const id = state().addObject({ geo: rect() });
+    state().duplicatePage(0);
+    expect(state().pages).toHaveLength(2);
+    expect(state().activePage).toBe(1);
+    expect(state().doc.objects).toHaveLength(1);
+    expect(state().doc.objects[0].id).not.toBe(id); // copy got a fresh id
+  });
+
+  it("deletes a page and refuses to delete the last one", () => {
+    state().addPage();
+    state().addPage();
+    expect(state().pages).toHaveLength(3);
+    state().deletePage(1);
+    expect(state().pages).toHaveLength(2);
+    state().deletePage(0);
+    expect(state().pages).toHaveLength(1);
+    state().deletePage(0); // last page — ignored
+    expect(state().pages).toHaveLength(1);
+  });
+});
+
+describe("fill and opacity", () => {
+  it("sets a per-object fill and opacity, and clears the fill back to the layer", () => {
+    const id = state().addObject({ geo: rect() });
+    state().setStyle([id], { fill: "#FF8FA3", opacity: 0.5 });
+    let o = state().doc.objects.find((x) => x.id === id)!;
+    expect(o.style).toEqual({ fill: "#FF8FA3", opacity: 0.5 });
+    state().setStyle([id], { fill: undefined });
+    o = state().doc.objects.find((x) => x.id === id)!;
+    expect(o.style?.fill).toBeUndefined();
+    expect(o.style?.opacity).toBe(0.5);
+  });
+});
+
+describe("grouping", () => {
+  it("groups the selection and selecting one member selects the whole group", () => {
+    const [a, b, c] = state().addObjects([{ geo: rect() }, { geo: rect() }, { geo: rect() }]);
+    state().select([a, b]);
+    state().group();
+    const gid = state().doc.objects.find((o) => o.id === a)!.groupId;
+    expect(gid).toBeTruthy();
+    expect(state().doc.objects.find((o) => o.id === b)!.groupId).toBe(gid);
+    expect(state().doc.objects.find((o) => o.id === c)!.groupId).toBeUndefined();
+
+    state().clearSelection();
+    state().select([a]); // clicking one member
+    expect(new Set(state().selection)).toEqual(new Set([a, b]));
+  });
+
+  it("won't group a single object", () => {
+    const id = state().addObject({ geo: rect() });
+    state().select([id]);
+    state().group();
+    expect(state().doc.objects.find((o) => o.id === id)!.groupId).toBeUndefined();
+  });
+
+  it("ungroups", () => {
+    const [a, b] = state().addObjects([{ geo: rect() }, { geo: rect() }]);
+    state().select([a, b]);
+    state().group();
+    state().ungroup();
+    expect(state().doc.objects.every((o) => o.groupId === undefined)).toBe(true);
+  });
+
+  it("gives a duplicated group its own group id", () => {
+    const [a, b] = state().addObjects([{ geo: rect() }, { geo: rect() }]);
+    state().select([a, b]);
+    state().group();
+    const gid = state().doc.objects.find((o) => o.id === a)!.groupId;
+    state().duplicateObjects([a, b]);
+    const copies = state().selection.map((id) => state().doc.objects.find((o) => o.id === id)!);
+    const copyGid = copies[0].groupId;
+    expect(copyGid).toBeTruthy();
+    expect(copyGid).not.toBe(gid);
+    expect(copies.every((o) => o.groupId === copyGid)).toBe(true);
+  });
+});
+
 describe("transforms and arrangement", () => {
   it("sets position by bounds and size by bounds", () => {
     const id = state().addObject({ geo: { kind: "ellipse", rx: 10, ry: 10 }, init: { x: 50, y: 50 } });

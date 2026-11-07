@@ -1,0 +1,14 @@
+{
+  "name": "cutdesk-catalog-builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn a folder of SVGs/PNGs into a CutDesk gallery catalog.json.",
+  "bin": {
+    "cutdesk-catalog": "build-catalog.mjs"
+  },
+  "dependencies": {
+    "svg-path-bounds": "^1.0.2",
+    "svgpath": "^2.6.0"
+  }
+}

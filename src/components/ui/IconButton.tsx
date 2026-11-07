@@ -26,7 +26,7 @@ export function IconButton({ icon: Icon, label, shortcut, pressed, size = "md", 
         className={cn(
           "grid shrink-0 place-items-center rounded-control transition-colors disabled:cursor-not-allowed disabled:opacity-40",
           size === "md" ? "size-9" : "size-7",
-          pressed ? "bg-ink text-white" : "text-ink hover:bg-sunken active:bg-line",
+          pressed ? "bg-ink text-on-ink" : "text-ink hover:bg-sunken active:bg-line",
           className,
         )}
         {...rest}

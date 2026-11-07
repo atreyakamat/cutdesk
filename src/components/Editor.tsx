@@ -5,7 +5,9 @@ import { ImportDialog } from "./ImportDialog";
 import { Inspector } from "./Inspector";
 import { LayersPanel } from "./LayersPanel";
 import { NoticeToast } from "./NoticeToast";
+import { PageBar } from "./PageBar";
 import { StatusBar } from "./StatusBar";
+import { TemplatesDialog } from "./TemplatesDialog";
 import { ToolRail } from "./ToolRail";
 import { TopBar } from "./TopBar";
 import { MatCanvas } from "./canvas/MatCanvas";
@@ -26,9 +28,10 @@ export default function Editor() {
         <TopBar />
         <div className="relative grid min-h-0 grid-cols-[3.5rem_minmax(0,1fr)] lg:grid-cols-[3.5rem_minmax(0,1fr)_20rem]">
           <ToolRail />
-          <main className="relative min-h-0 min-w-0 overflow-hidden" aria-label="Cutting mat">
+          <main className="mat-stage relative min-h-0 min-w-0 overflow-hidden" aria-label="Cutting mat">
             <MatCanvas />
             <EmptyState />
+            <PageBar />
             <StatusBar />
           </main>
           <aside
@@ -45,6 +48,7 @@ export default function Editor() {
         </div>
       </div>
       <ImportDialog />
+      <TemplatesDialog />
       <NoticeToast />
     </TooltipProvider>
   );

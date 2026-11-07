@@ -39,6 +39,7 @@ export const ObjectNode = memo(function ObjectNode({ obj, layer, draggable, onDr
     rotation: obj.rotation,
     scaleX: obj.scaleX,
     scaleY: obj.scaleY,
+    opacity: obj.style?.opacity ?? 1,
     draggable: draggable && !layer.locked,
     listening: !layer.locked,
     onDragStart,
@@ -57,7 +58,9 @@ export const ObjectNode = memo(function ObjectNode({ obj, layer, draggable, onDr
           lineJoin: "round" as const,
           dash: layer.operation === "score" ? [6, 4] : undefined,
         };
-  const fill = layer.operation === "cut" ? layer.color : undefined;
+  // A per-object fill (design styling) wins; otherwise cut layers show their
+  // material colour and score/draw stay outline-only.
+  const fill = obj.style?.fill ?? (layer.operation === "cut" ? layer.color : undefined);
   const geo = obj.geo;
 
   switch (geo.kind) {

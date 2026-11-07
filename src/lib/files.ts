@@ -1,6 +1,8 @@
 "use client";
 
-import { exportFileName, exportSvg, slugify, type ExportKind } from "@/lib/doc/svg";
+import { exportFileName, exportPrintable, exportSvg, slugify, type ExportKind } from "@/lib/doc/svg";
+import { exportVisualSvg, rasterSize } from "@/lib/doc/raster";
+import { jpegToPdf, mmToPt } from "@/lib/doc/pdf";
 import { PROJECT_EXTENSION, ProjectError, parseProject, serializeProject } from "@/lib/doc/project";
 import { useEditor } from "@/store/editorStore";
 
@@ -42,10 +44,88 @@ export function exportSvgFile(kind: ExportKind): void {
   notify("info", `Exported ${exportFileName(doc, kind)}.`);
 }
 
-export function saveProjectFile(): void {
+export function exportPrintableFile(): void {
   const { doc, notify } = useEditor.getState();
-  downloadFile(`${slugify(doc.name)}${PROJECT_EXTENSION}`, serializeProject(doc), "application/json");
-  notify("info", `Saved ${slugify(doc.name)}${PROJECT_EXTENSION}.`);
+  const svg = exportPrintable(doc);
+  if (!svg.includes("<path") && !svg.includes("<image")) {
+    notify("info", "There's nothing to print yet.");
+    return;
+  }
+  downloadFile(`${slugify(doc.name)}-print.svg`, svg, "image/svg+xml");
+  notify("info", "Exported the print-then-cut layout with registration marks.");
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Couldn't render the design image."));
+    img.src = src;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Export failed while encoding the image."))), type, quality);
+  });
+}
+
+/** Rasterise the current design to a canvas at print resolution. */
+async function renderDesignCanvas(background?: string): Promise<HTMLCanvasElement> {
+  const { doc } = useEditor.getState();
+  const { width, height } = rasterSize(doc);
+  const svg = exportVisualSvg(doc, { background });
+  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  try {
+    const img = await loadImage(url);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("This browser can't render a canvas for export.");
+    if (background && background !== "transparent") {
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+export async function exportPngFile(): Promise<void> {
+  const st = useEditor.getState();
+  try {
+    const canvas = await renderDesignCanvas(); // transparent background
+    const blob = await canvasToBlob(canvas, "image/png");
+    downloadFile(`${slugify(st.doc.name)}.png`, blob, "image/png");
+    st.notify("info", `Exported ${slugify(st.doc.name)}.png.`);
+  } catch (err) {
+    st.notify("error", err instanceof Error ? err.message : "Couldn't export a PNG.");
+  }
+}
+
+export async function exportPdfFile(): Promise<void> {
+  const st = useEditor.getState();
+  const { doc } = st;
+  try {
+    const { width, height } = rasterSize(doc);
+    const canvas = await renderDesignCanvas("#ffffff");
+    const jpeg = new Uint8Array(await (await canvasToBlob(canvas, "image/jpeg", 0.92)).arrayBuffer());
+    const pdf = jpegToPdf(jpeg, width, height, mmToPt(doc.mat.width), mmToPt(doc.mat.height));
+    downloadFile(`${slugify(doc.name)}.pdf`, new Blob([pdf as BlobPart], { type: "application/pdf" }), "application/pdf");
+    st.notify("info", `Exported ${slugify(doc.name)}.pdf.`);
+  } catch (err) {
+    st.notify("error", err instanceof Error ? err.message : "Couldn't export a PDF.");
+  }
+}
+
+export function saveProjectFile(): void {
+  const { doc, pages, activePage, notify } = useEditor.getState();
+  downloadFile(`${slugify(doc.name)}${PROJECT_EXTENSION}`, serializeProject({ pages, activePage }), "application/json");
+  const pageNote = pages.length > 1 ? ` (${pages.length} pages)` : "";
+  notify("info", `Saved ${slugify(doc.name)}${PROJECT_EXTENSION}${pageNote}.`);
 }
 
 export async function openProjectFile(file?: File | null): Promise<void> {
@@ -53,9 +133,11 @@ export async function openProjectFile(file?: File | null): Promise<void> {
   const picked = file ?? (await pickFile(`${PROJECT_EXTENSION},.json,application/json`));
   if (!picked) return;
   try {
-    const doc = parseProject(await picked.text());
-    st.loadDoc(doc);
-    st.notify("info", `Opened ${doc.name}.`);
+    const project = parseProject(await picked.text());
+    st.loadProject(project);
+    const active = project.pages[project.activePage] ?? project.pages[0];
+    const pageNote = project.pages.length > 1 ? ` · ${project.pages.length} pages` : "";
+    st.notify("info", `Opened ${active.name}${pageNote}.`);
   } catch (err) {
     st.notify("error", err instanceof ProjectError ? err.message : "Couldn't open that file.");
   }

@@ -49,11 +49,27 @@ export type Geometry =
 
 export type GeometryKind = Geometry["kind"];
 
+/**
+ * Optional visual styling, independent of cut semantics. The cut path always
+ * follows the geometry; `style` only changes how the object looks on screen and
+ * in raster/PDF export, so the editor can be used as a design tool, not just a
+ * cutter.
+ */
+export interface ObjectStyle {
+  /** Hex fill colour; overrides the layer's material fill for display. */
+  fill?: string;
+  /** 0–1. */
+  opacity?: number;
+}
+
 export interface DesignObject extends Transform {
   id: string;
   name: string;
   layerId: string;
   geo: Geometry;
+  style?: ObjectStyle;
+  /** Objects sharing a groupId select and move together. */
+  groupId?: string;
 }
 
 export interface Layer {

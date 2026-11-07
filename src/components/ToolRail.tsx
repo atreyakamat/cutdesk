@@ -2,6 +2,7 @@
 
 import { Circle, Hand, ImagePlus, Layers, MousePointer2, PenTool, Square, Type, type LucideIcon } from "lucide-react";
 import { useEditor, type Tool } from "@/store/editorStore";
+import { GalleryDialog } from "./GalleryDialog";
 import { IconButton } from "./ui/IconButton";
 
 const TOOLS: ReadonlyArray<{ tool: Tool; label: string; shortcut: string; icon: LucideIcon }> = [
@@ -26,6 +27,7 @@ export function ToolRail() {
         <IconButton key={t} icon={icon} label={label} shortcut={shortcut} tipSide="right" pressed={tool === t} onClick={() => setTool(t)} />
       ))}
       <div className="my-1 h-px w-6 bg-line" role="separator" />
+      <GalleryDialog />
       <IconButton icon={ImagePlus} label="Trace an image" shortcut="I" tipSide="right" onClick={() => openImport()} />
       <div className="flex-1" />
       <IconButton

@@ -58,7 +58,7 @@ export function NumberField({ label, ariaLabel, value, onCommit, step = 1, min, 
     <label
       htmlFor={id}
       className={cn(
-        "flex h-8 min-w-0 items-center gap-1.5 rounded-control border border-line bg-white px-2 text-sm focus-within:border-ink focus-within:ring-2 focus-within:ring-focus/30",
+        "flex h-8 min-w-0 items-center gap-1.5 rounded-control border border-line bg-raised px-2 text-sm focus-within:border-ink focus-within:ring-2 focus-within:ring-focus/30",
         disabled && "opacity-45",
         className,
       )}

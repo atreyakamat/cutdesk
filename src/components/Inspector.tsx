@@ -14,13 +14,16 @@ import {
   Copy,
   FlipHorizontal2,
   FlipVertical2,
+  Group,
   Link2,
   Trash2,
+  Ungroup,
   Unlink2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { buildCutPlan } from "@/lib/doc/cutPlan";
+import { LAYER_COLORS } from "@/lib/doc/defaults";
 import { bboxSize, unionBBox, worldAABB } from "@/lib/doc/geometry";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM } from "@/lib/doc/mats";
 import { fromMm, formatLength, toMm, unitPrecision } from "@/lib/doc/units";
@@ -30,6 +33,7 @@ import { selectedObjectsOf, useEditor } from "@/store/editorStore";
 import { Row, Section, Select } from "./ui/Controls";
 import { IconButton } from "./ui/IconButton";
 import { NumberField } from "./ui/NumberField";
+import { cn } from "./ui/cn";
 
 function MatSection() {
   const mat = useEditor((s) => s.doc.mat);
@@ -164,7 +168,7 @@ function TextFields({ id }: { id: string }) {
             void setTextProps(id, { text: e.target.value }).then(() => undefined);
           }}
           onBlur={() => setDraft(null)}
-          className="w-full resize-none rounded-control border border-line bg-white px-2.5 py-1.5 text-sm hover:border-line-strong focus:border-ink"
+          className="w-full resize-none rounded-control border border-line bg-raised px-2.5 py-1.5 text-sm hover:border-line-strong focus:border-ink"
         />
         <Select
           aria-label="Font"
@@ -216,6 +220,11 @@ function SelectionSection() {
   const layerId = objs.every((o) => o.layerId === objs[0].layerId) ? objs[0].layerId : "";
   const ids = objs.map((o) => o.id);
   const image = single?.geo.kind === "image";
+  const fillable = objs.some((o) => o.geo.kind !== "image");
+  const fill = single?.style?.fill;
+  const opacityPct = Math.round((single?.style?.opacity ?? objs[0].style?.opacity ?? 1) * 100);
+  const canGroup = objs.length >= 2;
+  const canUngroup = objs.some((o) => !!o.groupId);
 
   return (
     <>
@@ -274,6 +283,59 @@ function SelectionSection() {
         </div>
       </Section>
 
+      {fillable && (
+        <Section title="Fill">
+          <div className="flex flex-col gap-2.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                aria-label="No fill"
+                title="No fill"
+                onClick={() => store().setStyle(ids, { fill: undefined })}
+                className={cn("grid size-6 place-items-center rounded-full border", !fill ? "border-ink" : "border-line")}
+              >
+                <span className="block h-px w-4 -rotate-45 bg-blade" />
+              </button>
+              {LAYER_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`Fill ${c}`}
+                  onClick={() => store().setStyle(ids, { fill: c })}
+                  style={{ background: c }}
+                  className={cn(
+                    "size-6 rounded-full border",
+                    fill?.toLowerCase() === c.toLowerCase() ? "border-ink ring-2 ring-ink/30" : "border-line",
+                  )}
+                />
+              ))}
+              <label className="relative size-6 overflow-hidden rounded-full border border-line" title="Custom colour">
+                <input
+                  type="color"
+                  aria-label="Custom fill colour"
+                  value={fill ?? "#000000"}
+                  onChange={(e) => store().setStyle(ids, { fill: e.target.value })}
+                  className="absolute -inset-1 cursor-pointer"
+                />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-ink-soft">
+              <span className="w-14">Opacity</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                aria-label="Opacity"
+                value={opacityPct}
+                onChange={(e) => store().setStyle(ids, { opacity: Number(e.target.value) / 100 })}
+                className="flex-1"
+              />
+              <span className="w-9 text-right tabular-nums">{opacityPct}%</span>
+            </label>
+          </div>
+        </Section>
+      )}
+
       <TextFields id={single?.geo.kind === "text" ? single.id : ""} />
 
       <Section title="Arrange">
@@ -290,6 +352,8 @@ function SelectionSection() {
             <IconButton size="sm" icon={ChevronUp} label="Bring forward" onClick={() => store().restack("forward")} />
             <IconButton size="sm" icon={ChevronDown} label="Send backward" onClick={() => store().restack("backward")} />
             <IconButton size="sm" icon={ArrowDownToLine} label="Send to back" onClick={() => store().restack("back")} />
+            <IconButton size="sm" icon={Group} label="Group" shortcut="Ctrl G" disabled={!canGroup} onClick={() => store().group()} />
+            <IconButton size="sm" icon={Ungroup} label="Ungroup" shortcut="Ctrl Shift G" disabled={!canUngroup} onClick={() => store().ungroup()} />
           </div>
           <Row label="Layer">
             <Select
@@ -311,7 +375,7 @@ function SelectionSection() {
             <button
               type="button"
               onClick={() => store().duplicateObjects(ids)}
-              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border border-line bg-white text-sm font-medium hover:bg-sunken"
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium hover:bg-sunken"
             >
               <Copy className="size-3.5" aria-hidden="true" />
               Duplicate
@@ -319,7 +383,7 @@ function SelectionSection() {
             <button
               type="button"
               onClick={() => store().removeObjects(ids)}
-              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border border-line bg-white text-sm font-medium text-blade hover:bg-blade/5"
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border border-line bg-raised text-sm font-medium text-blade hover:bg-blade/5"
             >
               <Trash2 className="size-3.5" aria-hidden="true" />
               Delete

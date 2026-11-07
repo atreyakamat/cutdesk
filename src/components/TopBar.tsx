@@ -1,14 +1,16 @@
 "use client";
 
-import { ChevronDown, Download, FilePlus2, FolderOpen, Play, Redo2, Save, Undo2 } from "lucide-react";
+import { ChevronDown, Download, FilePlus2, FolderOpen, LayoutTemplate, Play, Redo2, Save, Undo2 } from "lucide-react";
 import { DropdownMenu as M } from "radix-ui";
 import type { ReactNode } from "react";
-import { exportSvgFile, openProjectFile, saveProjectFile } from "@/lib/files";
+import { exportPdfFile, exportPngFile, exportPrintableFile, exportSvgFile, openProjectFile, saveProjectFile } from "@/lib/files";
 import type { ExportKind } from "@/lib/doc/svg";
 import { useEditor } from "@/store/editorStore";
 import { Logo } from "./Logo";
+import { SendDialog } from "./SendDialog";
 import { Button } from "./ui/Controls";
 import { IconButton } from "./ui/IconButton";
+import { ThemeToggle } from "./ui/ThemeToggle";
 import { cn } from "./ui/cn";
 
 function MenuContent({ children, align = "end" }: { children: ReactNode; align?: "start" | "end" }) {
@@ -41,7 +43,7 @@ function Item({
       onSelect={onSelect}
       className={cn(
         "flex cursor-default items-center gap-2.5 rounded-control px-2.5 py-2 text-sm outline-none",
-        "data-[highlighted]:bg-ink data-[highlighted]:text-white",
+        "data-[highlighted]:bg-ink data-[highlighted]:text-on-ink",
       )}
     >
       {icon}
@@ -68,6 +70,7 @@ export function TopBar() {
   const startPreview = useEditor((s) => s.startPreview);
   const previewing = useEditor((s) => s.preview !== null);
   const newDoc = useEditor((s) => s.newDoc);
+  const openTemplates = useEditor((s) => s.setTemplatesOpen);
 
   return (
     <header className="flex h-12 items-center gap-2 border-b border-line bg-panel px-3">
@@ -81,12 +84,13 @@ export function TopBar() {
         value={name}
         onChange={(e) => setName(e.target.value)}
         maxLength={80}
-        className="h-8 w-16 min-w-0 flex-1 sm:flex-none rounded-control border border-transparent bg-transparent px-2 text-sm font-medium hover:border-line focus:border-ink focus:bg-white sm:w-56"
+        className="h-8 w-16 min-w-0 flex-1 sm:flex-none rounded-control border border-transparent bg-transparent px-2 text-sm font-medium hover:border-line focus:border-ink focus:bg-raised sm:w-56"
       />
 
       <div className="flex items-center">
         <IconButton icon={Undo2} label="Undo" shortcut="Ctrl Z" disabled={!canUndo} onClick={undo} />
         <IconButton icon={Redo2} label="Redo" shortcut="Ctrl Shift Z" disabled={!canRedo} onClick={redo} />
+        <ThemeToggle />
       </div>
 
       <div className="hidden flex-1 sm:block" />
@@ -95,6 +99,8 @@ export function TopBar() {
         <Play className="size-3.5" aria-hidden="true" />
         <span className="hidden sm:inline">Preview cut</span>
       </Button>
+
+      <SendDialog />
 
       <M.Root>
         <M.Trigger asChild>
@@ -107,6 +113,9 @@ export function TopBar() {
         <MenuContent>
           <Item icon={<FilePlus2 className="size-4" />} onSelect={newDoc}>
             New design
+          </Item>
+          <Item icon={<LayoutTemplate className="size-4" />} onSelect={() => openTemplates(true)}>
+            Templates & pages…
           </Item>
           <Item icon={<FolderOpen className="size-4" />} onSelect={() => void openProjectFile()}>
             Open project…
@@ -131,6 +140,16 @@ export function TopBar() {
               {e.label}
             </Item>
           ))}
+          <Item hint="Reg. marks" onSelect={exportPrintableFile}>
+            Print-then-cut layout
+          </Item>
+          <div className="my-1 h-px bg-line" role="separator" />
+          <Item hint="Image" onSelect={() => void exportPngFile()}>
+            PNG image
+          </Item>
+          <Item hint="Document" onSelect={() => void exportPdfFile()}>
+            PDF document
+          </Item>
         </MenuContent>
       </M.Root>
     </header>

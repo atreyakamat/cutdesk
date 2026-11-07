@@ -16,7 +16,7 @@ export function useAutosave(): void {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(KEY);
-      if (saved) useEditor.getState().loadDoc(parseProject(saved));
+      if (saved) useEditor.getState().loadProject(parseProject(saved));
     } catch (err) {
       if (!(err instanceof ProjectError)) console.warn("CutDesk: could not read autosave", err);
     }
@@ -25,11 +25,12 @@ export function useAutosave(): void {
     let warned = false;
 
     const unsubscribe = useEditor.subscribe((state, prev) => {
-      if (state.doc === prev.doc) return;
+      if (state.doc === prev.doc && state.pages === prev.pages && state.activePage === prev.activePage) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
         try {
-          window.localStorage.setItem(KEY, serializeProject(useEditor.getState().doc));
+          const { pages, activePage } = useEditor.getState();
+          window.localStorage.setItem(KEY, serializeProject({ pages, activePage }));
         } catch {
           if (!warned) {
             warned = true;

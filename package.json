@@ -5,12 +5,18 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:tauri": "NEXT_OUTPUT_EXPORT=1 next build",
     "start": "next start",
-    "lint": "eslint"
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "lint": "eslint",
+    "tauri": "tauri",
+    "desktop": "tauri dev"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/hanken-grotesk": "^5.3.0",
+    "@tauri-apps/api": "^2.12.4",
     "framer-motion": "^14.9.1",
     "imagetracerjs": "^1.2.6",
     "konva": "^10.9.1",
@@ -25,7 +31,9 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/turbopack": "^4",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",

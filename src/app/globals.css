@@ -20,6 +20,8 @@
   --color-score: #2455d6;
   --color-pen: #6d2fcb;
   --color-focus: #2455d6;
+  --color-raised: #ffffff;
+  --color-on-ink: #ffffff;
 
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
@@ -32,6 +34,55 @@
 
 :root {
   color-scheme: light;
+}
+
+/*
+ * Dark mode: the workshop at night. The neutral bench, panels and ink flip,
+ * but the mat stays lit green and the cut/score/pen colours keep their meaning.
+ * Applies on an explicit [data-theme="dark"], or by system setting when the
+ * person hasn't chosen (the ":light" guard lets an explicit light win).
+ */
+:root[data-theme="dark"] {
+  --color-bench: #0e1411;
+  --color-panel: #141b17;
+  --color-sunken: #1b231e;
+  --color-raised: #212a24;
+  --color-line: #2b352e;
+  --color-line-strong: #3d4a41;
+  --color-ink: #e8efe9;
+  --color-ink-soft: #a0b1a6;
+  --color-ink-faint: #76867b;
+  --color-on-ink: #0e1411;
+  --color-focus: #6f9bff;
+  --shadow-pop: 0 10px 34px -10px rgb(0 0 0 / 0.65), 0 0 0 1px rgb(255 255 255 / 0.07);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bench: #0e1411;
+    --color-panel: #141b17;
+    --color-sunken: #1b231e;
+    --color-raised: #212a24;
+    --color-line: #2b352e;
+    --color-line-strong: #3d4a41;
+    --color-ink: #e8efe9;
+    --color-ink-soft: #a0b1a6;
+    --color-ink-faint: #76867b;
+    --color-on-ink: #0e1411;
+    --color-focus: #6f9bff;
+    --shadow-pop: 0 10px 34px -10px rgb(0 0 0 / 0.65), 0 0 0 1px rgb(255 255 255 / 0.07);
+    color-scheme: dark;
+  }
+}
+
+/* Soft stage light behind the mat so it reads as lifted off the bench. */
+.mat-stage {
+  background: radial-gradient(
+    120% 90% at 50% -10%,
+    color-mix(in srgb, var(--color-panel) 55%, var(--color-bench)),
+    var(--color-bench) 70%
+  );
 }
 
 html,

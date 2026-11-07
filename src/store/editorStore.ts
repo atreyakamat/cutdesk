@@ -12,6 +12,7 @@ import {
   worldAABB,
 } from "@/lib/doc/geometry";
 import { newId } from "@/lib/doc/ids";
+import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
 import type {
   DesignObject,
@@ -21,6 +22,7 @@ import type {
   GeometryKind,
   Layer,
   MatPresetId,
+  ObjectStyle,
   Operation,
   Transform,
   Unit,
@@ -69,6 +71,12 @@ interface EditorState {
   future: Doc[];
   coalesce: { key: string; at: number } | null;
 
+  /** All pages of the project. `pages[activePage]` is always the live `doc`. */
+  pages: Doc[];
+  activePage: number;
+  /** Per-page undo stacks for the pages that aren't active. */
+  pageHist: { past: Doc[]; future: Doc[] }[];
+
   selection: string[];
   activeLayerId: string;
   tool: Tool;
@@ -80,6 +88,7 @@ interface EditorState {
   notice: Notice | null;
   importOpen: boolean;
   importFile: File | null;
+  templatesOpen: boolean;
   /** Bumped to ask the inspector to focus the text field. */
   textFocusTick: number;
   panelsOpen: boolean;
@@ -91,7 +100,15 @@ interface EditorState {
   undo: () => void;
   redo: () => void;
   loadDoc: (doc: Doc) => void;
+  loadProject: (project: Project) => void;
   newDoc: () => void;
+
+  // pages
+  addPage: () => void;
+  addPageFromDoc: (doc: Doc) => void;
+  selectPage: (index: number) => void;
+  duplicatePage: (index: number) => void;
+  deletePage: (index: number) => void;
   setName: (name: string) => void;
   setUnit: (unit: Unit) => void;
   setMat: (patch: { preset?: MatPresetId; width?: number; height?: number }) => void;
@@ -113,6 +130,9 @@ interface EditorState {
   renameObject: (id: string, name: string) => void;
   moveToLayer: (ids: readonly string[], layerId: string) => void;
   setRectRadius: (radius: number) => void;
+  setStyle: (ids: readonly string[], patch: Partial<ObjectStyle>) => void;
+  group: () => void;
+  ungroup: () => void;
   setTextProps: (id: string, patch: Partial<{ text: string; fontId: FontId; size: number; letterSpacing: number }>) => Promise<void>;
   createText: (x: number, y: number, text?: string) => Promise<string | null>;
 
@@ -142,6 +162,7 @@ interface EditorState {
   dismissNotice: () => void;
   openImport: (file?: File | null) => void;
   closeImport: () => void;
+  setTemplatesOpen: (open: boolean) => void;
   setPanelsOpen: (open: boolean) => void;
 }
 
@@ -165,6 +186,20 @@ function nameFor(doc: Doc, geo: Geometry): string {
 function existingIds(doc: Doc, ids: readonly string[]): string[] {
   const set = new Set(doc.objects.map((o) => o.id));
   return ids.filter((id) => set.has(id));
+}
+
+/** Grow a set of ids to include every object in the same group. */
+function expandGroups(doc: Doc, ids: readonly string[]): string[] {
+  const wanted = new Set(ids);
+  const groups = new Set<string>();
+  for (const o of doc.objects) {
+    if (wanted.has(o.id) && o.groupId) groups.add(o.groupId);
+  }
+  if (groups.size === 0) return [...wanted];
+  for (const o of doc.objects) {
+    if (o.groupId && groups.has(o.groupId)) wanted.add(o.id);
+  }
+  return [...wanted];
 }
 
 /** The layer new shapes should land on: the first cut layer, else the first drawable one. */
@@ -192,6 +227,9 @@ export const useEditor = create<EditorState>()((set, get) => {
     past: [],
     future: [],
     coalesce: null,
+    pages: [initial],
+    activePage: 0,
+    pageHist: [{ past: [], future: [] }],
     selection: [],
     activeLayerId: defaultActiveLayer(initial),
     tool: "select",
@@ -201,6 +239,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     notice: null,
     importOpen: false,
     importFile: null,
+    templatesOpen: false,
     textFocusTick: 0,
     panelsOpen: false,
     cursor: null,
@@ -219,6 +258,7 @@ export const useEditor = create<EditorState>()((set, get) => {
           doc: next,
           past,
           future: [],
+          pages: s.pages.map((p, i) => (i === s.activePage ? next : p)),
           coalesce: opts?.coalesce ? { key: opts.coalesce, at: now } : null,
           selection: existingIds(next, s.selection),
           activeLayerId: layerOk ? s.activeLayerId : defaultActiveLayer(next),
@@ -234,6 +274,7 @@ export const useEditor = create<EditorState>()((set, get) => {
           doc: prev,
           past: s.past.slice(0, -1),
           future: [s.doc, ...s.future].slice(0, HISTORY_LIMIT),
+          pages: s.pages.map((p, i) => (i === s.activePage ? prev : p)),
           coalesce: null,
           selection: existingIds(prev, s.selection),
           activeLayerId: layerOk ? s.activeLayerId : defaultActiveLayer(prev),
@@ -248,6 +289,7 @@ export const useEditor = create<EditorState>()((set, get) => {
           doc: next,
           past: [...s.past, s.doc].slice(-HISTORY_LIMIT),
           future: s.future.slice(1),
+          pages: s.pages.map((p, i) => (i === s.activePage ? next : p)),
           coalesce: null,
           selection: existingIds(next, s.selection),
         };
@@ -258,6 +300,9 @@ export const useEditor = create<EditorState>()((set, get) => {
         doc,
         past: [],
         future: [],
+        pages: [doc],
+        activePage: 0,
+        pageHist: [{ past: [], future: [] }],
         coalesce: null,
         selection: [],
         activeLayerId: defaultActiveLayer(doc),
@@ -267,7 +312,138 @@ export const useEditor = create<EditorState>()((set, get) => {
       get().fitView();
     },
 
+    loadProject: ({ pages, activePage }) => {
+      const pp = pages.length ? pages : [createDefaultDoc()];
+      const active = clamp(activePage, 0, pp.length - 1);
+      set({
+        doc: pp[active],
+        past: [],
+        future: [],
+        pages: pp,
+        activePage: active,
+        pageHist: pp.map(() => ({ past: [], future: [] })),
+        coalesce: null,
+        selection: [],
+        activeLayerId: defaultActiveLayer(pp[active]),
+        preview: null,
+        tool: "select",
+      });
+      get().fitView();
+    },
+
     newDoc: () => get().loadDoc(createDefaultDoc()),
+
+    // -------------------------------------------------------------------- pages
+
+    addPage: () => {
+      const page = createDefaultDoc();
+      page.name = `Page ${get().pages.length + 1}`;
+      get().addPageFromDoc(page);
+    },
+
+    addPageFromDoc: (page) => {
+      set((s) => {
+        const pages = s.pages.map((p, i) => (i === s.activePage ? s.doc : p));
+        const hist = s.pageHist.map((h, i) => (i === s.activePage ? { past: s.past, future: s.future } : h));
+        return {
+          pages: [...pages, page],
+          pageHist: [...hist, { past: [], future: [] }],
+          activePage: pages.length,
+          doc: page,
+          past: [],
+          future: [],
+          coalesce: null,
+          selection: [],
+          activeLayerId: defaultActiveLayer(page),
+          preview: null,
+        };
+      });
+      get().fitView();
+    },
+
+    selectPage: (index) => {
+      const s = get();
+      if (index === s.activePage || index < 0 || index >= s.pages.length) return;
+      const pages = s.pages.map((p, i) => (i === s.activePage ? s.doc : p));
+      const hist = s.pageHist.map((h, i) => (i === s.activePage ? { past: s.past, future: s.future } : h));
+      const target = pages[index];
+      const th = hist[index] ?? { past: [], future: [] };
+      set({
+        pages,
+        pageHist: hist,
+        activePage: index,
+        doc: target,
+        past: th.past,
+        future: th.future,
+        coalesce: null,
+        selection: [],
+        activeLayerId: defaultActiveLayer(target),
+        preview: null,
+      });
+      get().fitView();
+    },
+
+    duplicatePage: (index) => {
+      const s = get();
+      if (index < 0 || index >= s.pages.length) return;
+      const pages = s.pages.map((p, i) => (i === s.activePage ? s.doc : p));
+      const hist = s.pageHist.map((h, i) => (i === s.activePage ? { past: s.past, future: s.future } : h));
+      // Fresh ids so the copy is independent of the original.
+      const source = pages[index];
+      const copy: Doc = {
+        ...source,
+        name: `${source.name} copy`,
+        layers: source.layers.map((l) => ({ ...l })),
+        objects: source.objects.map((o) => ({ ...o, id: newId() })),
+      };
+      const at = index + 1;
+      const nextPages = [...pages.slice(0, at), copy, ...pages.slice(at)];
+      const nextHist = [...hist.slice(0, at), { past: [], future: [] }, ...hist.slice(at)];
+      set({
+        pages: nextPages,
+        pageHist: nextHist,
+        activePage: at,
+        doc: copy,
+        past: [],
+        future: [],
+        coalesce: null,
+        selection: [],
+        activeLayerId: defaultActiveLayer(copy),
+        preview: null,
+      });
+      get().fitView();
+    },
+
+    deletePage: (index) => {
+      const s = get();
+      if (s.pages.length <= 1 || index < 0 || index >= s.pages.length) {
+        if (s.pages.length <= 1) get().notify("info", "A project needs at least one page.");
+        return;
+      }
+      const pages = s.pages.map((p, i) => (i === s.activePage ? s.doc : p));
+      const hist = s.pageHist.map((h, i) => (i === s.activePage ? { past: s.past, future: s.future } : h));
+      const nextPages = pages.filter((_, i) => i !== index);
+      const nextHist = hist.filter((_, i) => i !== index);
+      // Keep the active page selected; shift if it was after the removed one.
+      let active = s.activePage;
+      if (index === s.activePage) active = Math.min(index, nextPages.length - 1);
+      else if (index < s.activePage) active = s.activePage - 1;
+      const target = nextPages[active];
+      const th = nextHist[active] ?? { past: [], future: [] };
+      set({
+        pages: nextPages,
+        pageHist: nextHist,
+        activePage: active,
+        doc: target,
+        past: th.past,
+        future: th.future,
+        coalesce: null,
+        selection: [],
+        activeLayerId: defaultActiveLayer(target),
+        preview: null,
+      });
+      get().fitView();
+    },
 
     setName: (name) => get().commitDoc((d) => (d.name === name ? d : { ...d, name }), { coalesce: "name" }),
 
@@ -353,13 +529,20 @@ export const useEditor = create<EditorState>()((set, get) => {
     duplicateObjects: (ids) => {
       const want = new Set(ids);
       const copies: string[] = [];
+      // Remap group ids so a duplicated group is its own group, not merged with the original.
+      const groupMap = new Map<string, string>();
       get().commitDoc((d) => {
         const extra: DesignObject[] = [];
         for (const o of d.objects) {
           if (!want.has(o.id)) continue;
           const id = newId();
           copies.push(id);
-          extra.push({ ...translateObject(o, 5, 5), id, name: `${o.name} copy` });
+          let groupId = o.groupId;
+          if (groupId) {
+            if (!groupMap.has(groupId)) groupMap.set(groupId, newId());
+            groupId = groupMap.get(groupId);
+          }
+          extra.push({ ...translateObject(o, 5, 5), id, name: `${o.name} copy`, groupId });
         }
         return extra.length ? { ...d, objects: [...d.objects, ...extra] } : d;
       });
@@ -492,6 +675,39 @@ export const useEditor = create<EditorState>()((set, get) => {
         "radius",
       ),
 
+    setStyle: (ids, patch) =>
+      get().mapObjects(
+        ids,
+        (o) => {
+          const style = { ...o.style, ...patch };
+          // Drop keys set back to undefined so a cleared fill falls back to the layer.
+          for (const k of Object.keys(style) as (keyof ObjectStyle)[]) {
+            if (style[k] === undefined) delete style[k];
+          }
+          return { ...o, style };
+        },
+        "style",
+      ),
+
+    group: () => {
+      const ids = new Set(get().selection);
+      if (ids.size < 2) return;
+      const gid = newId();
+      get().mapObjects(get().selection, (o) => ({ ...o, groupId: gid }));
+    },
+
+    ungroup: () => {
+      const sel = new Set(get().selection);
+      const groups = new Set(
+        get().doc.objects.filter((o) => sel.has(o.id) && o.groupId).map((o) => o.groupId as string),
+      );
+      if (groups.size === 0) return;
+      get().commitDoc((d) => ({
+        ...d,
+        objects: d.objects.map((o) => (o.groupId && groups.has(o.groupId) ? { ...o, groupId: undefined } : o)),
+      }));
+    },
+
     setTextProps: async (id, patch) => {
       const current = get().doc.objects.find((o) => o.id === id);
       if (!current || current.geo.kind !== "text") return;
@@ -602,14 +818,21 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     select: (ids, additive = false) =>
       set((s) => {
-        const valid = existingIds(s.doc, ids);
+        const valid = expandGroups(s.doc, existingIds(s.doc, ids));
         return { selection: additive ? Array.from(new Set([...s.selection, ...valid])) : valid };
       }),
 
     toggleSelect: (id) =>
-      set((s) => ({
-        selection: s.selection.includes(id) ? s.selection.filter((x) => x !== id) : [...s.selection, id],
-      })),
+      set((s) => {
+        const groupIds = expandGroups(s.doc, [id]);
+        const already = s.selection.includes(id);
+        const current = new Set(s.selection);
+        for (const g of groupIds) {
+          if (already) current.delete(g);
+          else current.add(g);
+        }
+        return { selection: [...current] };
+      }),
 
     selectAll: () =>
       set((s) => {
@@ -678,6 +901,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     openImport: (file = null) => set({ importOpen: true, importFile: file }),
 
     closeImport: () => set({ importOpen: false, importFile: null }),
+
+    setTemplatesOpen: (templatesOpen) => set({ templatesOpen }),
 
     setPanelsOpen: (panelsOpen) => set({ panelsOpen }),
   };

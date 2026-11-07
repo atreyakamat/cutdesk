@@ -5,11 +5,12 @@ import { Pause, Play, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Ellipse, Layer, Path, Rect, Stage, Transformer } from "react-konva";
 import { buildCutPlan } from "@/lib/doc/cutPlan";
-import { bboxesIntersect, worldAABB } from "@/lib/doc/geometry";
+import { bboxesIntersect, unionBBox, worldAABB } from "@/lib/doc/geometry";
+import { computeSnap, distributionSnap, snapBoxes, snapTargets, type SnapLines, type SpacingGuide } from "@/lib/doc/snapping";
 import { clamp, formatLength } from "@/lib/doc/units";
 import { normalizeSegs, serializePath } from "@/lib/doc/pathData";
 import { canFinishPen, dropDuplicateTail, penSegs, type PenNode } from "@/lib/doc/pen";
-import type { Point } from "@/lib/doc/types";
+import type { BBox, Point } from "@/lib/doc/types";
 import { useEditor } from "@/store/editorStore";
 import { Button } from "../ui/Controls";
 import { CutPreviewLayer } from "./CutPreview";
@@ -30,10 +31,19 @@ interface DragState {
   leader: string;
   origin: Point;
   nodes: Map<string, { node: Konva.Node; x: number; y: number }>;
+  /** Union bounds of the selection at drag start, in mm. */
+  startBox: BBox;
+  /** Snap lines collected from the mat and the other objects, in mm. */
+  lines: SnapLines;
+  /** Bounds of the other objects, for equal-spacing checks. */
+  boxes: BBox[];
 }
 
 const INK = "#17251e";
 const SELECT_BLUE = "#2455d6";
+const GUIDE_PINK = "#e5327b";
+/** How close (screen px) a box line must come to a target before it snaps. */
+const SNAP_PX = 6;
 
 function readTransform(node: Konva.Node) {
   return { x: node.x(), y: node.y(), rotation: node.rotation(), scaleX: node.scaleX(), scaleY: node.scaleY() };
@@ -69,6 +79,8 @@ export function MatCanvas() {
   const setViewport = useEditor((s) => s.setViewport);
 
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
+  const [spacing, setSpacing] = useState<SpacingGuide[]>([]);
   const [pen, setPen] = useState<{ nodes: PenNode[]; hover: Point | null }>({ nodes: [], hover: null });
   const [panning, setPanning] = useState(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
@@ -79,6 +91,7 @@ export function MatCanvas() {
   const gesture = useRef<Gesture | null>(null);
   const lastPoint = useRef<Point>({ x: 0, y: 0 });
   const dragState = useRef<DragState | null>(null);
+  const resizeLines = useRef<SnapLines | null>(null);
   const penRef = useRef(pen);
   useEffect(() => {
     penRef.current = pen;
@@ -370,28 +383,79 @@ export function MatCanvas() {
     for (const n of stage.find<Konva.Node>(".obj")) {
       if (wanted.has(n.id())) nodes.set(n.id(), { node: n, x: n.x(), y: n.y() });
     }
-    dragState.current = { leader: lead.id(), origin: { x: lead.x(), y: lead.y() }, nodes };
+    const dragged = st.doc.objects.filter((o) => wanted.has(o.id)).map(worldAABB);
+    const startBox = unionBBox(dragged) ?? { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    dragState.current = {
+      leader: lead.id(),
+      origin: { x: lead.x(), y: lead.y() },
+      nodes,
+      startBox,
+      lines: snapTargets(st.doc, wanted),
+      boxes: snapBoxes(st.doc, wanted),
+    };
   }, []);
 
   const onDragMove = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
     const d = dragState.current;
     if (!d) return;
-    const dx = e.target.x() - d.origin.x;
-    const dy = e.target.y() - d.origin.y;
+    const rawDx = e.target.x() - d.origin.x;
+    const rawDy = e.target.y() - d.origin.y;
+    let dx = rawDx;
+    let dy = rawDy;
+
+    // Hold Alt (or ⌘) to drag freely without snapping.
+    const evt = e.evt as DragEvent & { altKey?: boolean; metaKey?: boolean };
+    const bypass = !!(evt && (evt.altKey || evt.metaKey));
+    let gx: number | null = null;
+    let gy: number | null = null;
+    let spaces: SpacingGuide[] = [];
+    if (!bypass) {
+      const tol = SNAP_PX / useEditor.getState().view.scale;
+      const shift = (box: BBox, ox: number, oy: number): BBox => ({
+        minX: box.minX + ox,
+        minY: box.minY + oy,
+        maxX: box.maxX + ox,
+        maxY: box.maxY + oy,
+      });
+      // 1) Edge/centre snap to the mat and other objects.
+      const snap = computeSnap(shift(d.startBox, dx, dy), d.lines, tol);
+      dx += snap.dx;
+      dy += snap.dy;
+      gx = snap.guideX;
+      gy = snap.guideY;
+      // 2) Equal-spacing snap, but only on an axis that didn't already edge-snap.
+      const dist = distributionSnap(shift(d.startBox, dx, dy), d.boxes, tol);
+      if (gx === null && dist.dx !== 0) dx += dist.dx;
+      if (gy === null && dist.dy !== 0) dy += dist.dy;
+      spaces = dist.guides.filter((g) => (g.axis === "x" ? gx === null : gy === null));
+      if (dx !== rawDx || dy !== rawDy) e.target.position({ x: d.origin.x + dx, y: d.origin.y + dy });
+    }
+
     for (const [id, item] of d.nodes) {
       if (id !== d.leader) item.node.position({ x: item.x + dx, y: item.y + dy });
     }
+    setGuides((prev) => (prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy }));
+    setSpacing((prev) => (prev.length === 0 && spaces.length === 0 ? prev : spaces));
   }, []);
 
   const onDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
     const d = dragState.current;
     dragState.current = null;
+    setGuides((prev) => (prev.x === null && prev.y === null ? prev : { x: null, y: null }));
+    setSpacing((prev) => (prev.length === 0 ? prev : []));
     if (!d || e.target.id() !== d.leader) return;
     const updates = [...d.nodes].map(([id, item]) => ({ id, ...readTransform(item.node) }));
     useEditor.getState().setTransforms(updates);
   }, []);
 
+  const onTransformStart = () => {
+    const st = useEditor.getState();
+    resizeLines.current = snapTargets(st.doc, new Set(st.selection));
+  };
+
   const onTransformEnd = () => {
+    resizeLines.current = null;
+    setGuides((prev) => (prev.x === null && prev.y === null ? prev : { x: null, y: null }));
     const tr = trRef.current;
     if (!tr) return;
     const nodes = tr.nodes();
@@ -403,6 +467,53 @@ export function MatCanvas() {
       if (kind === "rect" || kind === "ellipse") n.scale({ x: Math.sign(n.scaleX()) || 1, y: Math.sign(n.scaleY()) || 1 });
     }
     useEditor.getState().setTransforms(updates);
+  };
+
+  /**
+   * Snap the resize box's moving edge onto the nearest alignment line. The
+   * Transformer works in absolute (screen) pixels, so targets are mapped from
+   * millimetres through the current view. Only axis-aligned (unrotated) boxes
+   * snap; rotated ones resize freely.
+   */
+  const snapResizeBox = (oldBox: Konva.IRect & { rotation: number }, newBox: Konva.IRect & { rotation: number }) => {
+    if (Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4) return oldBox;
+    const lines = resizeLines.current;
+    if (!lines || Math.abs(newBox.rotation) > 1e-3) return newBox;
+    const v = useEditor.getState().view;
+    const tolPx = SNAP_PX;
+    const near = (absPos: number, mmTargets: number[], toAbs: (mm: number) => number) => {
+      let best: { delta: number; mm: number } | null = null;
+      let bestDist = tolPx;
+      for (const mm of mmTargets) {
+        const d = toAbs(mm) - absPos;
+        if (Math.abs(d) <= bestDist) {
+          bestDist = Math.abs(d);
+          best = { delta: d, mm };
+        }
+      }
+      return best;
+    };
+    const toAbsX = (mm: number) => v.tx + mm * v.scale;
+    const toAbsY = (mm: number) => v.ty + mm * v.scale;
+    let gx: number | null = null;
+    let gy: number | null = null;
+
+    if (Math.abs(newBox.x - oldBox.x) > 1e-6) {
+      const s = near(newBox.x, lines.xs, toAbsX);
+      if (s) { newBox.x += s.delta; newBox.width -= s.delta; gx = s.mm; }
+    } else if (Math.abs(newBox.x + newBox.width - (oldBox.x + oldBox.width)) > 1e-6) {
+      const s = near(newBox.x + newBox.width, lines.xs, toAbsX);
+      if (s) { newBox.width += s.delta; gx = s.mm; }
+    }
+    if (Math.abs(newBox.y - oldBox.y) > 1e-6) {
+      const s = near(newBox.y, lines.ys, toAbsY);
+      if (s) { newBox.y += s.delta; newBox.height -= s.delta; gy = s.mm; }
+    } else if (Math.abs(newBox.y + newBox.height - (oldBox.y + oldBox.height)) > 1e-6) {
+      const s = near(newBox.y + newBox.height, lines.ys, toAbsY);
+      if (s) { newBox.height += s.delta; gy = s.mm; }
+    }
+    setGuides((prev) => (prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy }));
+    return newBox;
   };
 
   // ---------------------------------------------------------------- previews
@@ -422,6 +533,57 @@ export function MatCanvas() {
       <Rect {...common} {...b} />
     ) : (
       <Ellipse {...common} x={b.x + b.width / 2} y={b.y + b.height / 2} radiusX={b.width / 2} radiusY={b.height / 2} />
+    );
+  })();
+
+  const guideShapes = (() => {
+    if (guides.x === null && guides.y === null) return null;
+    const m = 40; // extend a little past the mat so the line clearly spans it
+    const x0 = -m;
+    const x1 = doc.mat.width + m;
+    const y0 = -m;
+    const y1 = doc.mat.height + m;
+    return (
+      <>
+        {guides.x !== null && (
+          <Path data={`M${guides.x} ${y0}L${guides.x} ${y1}`} stroke={GUIDE_PINK} strokeWidth={1} strokeScaleEnabled={false} listening={false} />
+        )}
+        {guides.y !== null && (
+          <Path data={`M${x0} ${guides.y}L${x1} ${guides.y}`} stroke={GUIDE_PINK} strokeWidth={1} strokeScaleEnabled={false} listening={false} />
+        )}
+      </>
+    );
+  })();
+
+  const spacingShapes = (() => {
+    if (spacing.length === 0) return null;
+    const cap = 3 / view.scale; // half-length of the end ticks, in mm
+    return spacing.flatMap((g, gi) =>
+      g.spans.map((s, si) => {
+        const key = `${gi}-${si}`;
+        if (g.axis === "x") {
+          return (
+            <Path
+              key={key}
+              data={`M${s.start} ${s.at - cap}L${s.start} ${s.at + cap}M${s.start} ${s.at}L${s.end} ${s.at}M${s.end} ${s.at - cap}L${s.end} ${s.at + cap}`}
+              stroke={GUIDE_PINK}
+              strokeWidth={1}
+              strokeScaleEnabled={false}
+              listening={false}
+            />
+          );
+        }
+        return (
+          <Path
+            key={key}
+            data={`M${s.at - cap} ${s.start}L${s.at + cap} ${s.start}M${s.at} ${s.start}L${s.at} ${s.end}M${s.at - cap} ${s.end}L${s.at + cap} ${s.end}`}
+            stroke={GUIDE_PINK}
+            strokeWidth={1}
+            strokeScaleEnabled={false}
+            listening={false}
+          />
+        );
+      }),
     );
   })();
 
@@ -525,6 +687,8 @@ export function MatCanvas() {
             })}
           </Layer>
           <Layer>
+            {guideShapes}
+            {spacingShapes}
             {draftShape}
             {penPreview}
             <Transformer
@@ -541,7 +705,8 @@ export function MatCanvas() {
               borderStroke={INK}
               borderStrokeWidth={1.2}
               ignoreStroke
-              boundBoxFunc={(oldBox, newBox) => (Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4 ? oldBox : newBox)}
+              boundBoxFunc={snapResizeBox}
+              onTransformStart={onTransformStart}
               onTransformEnd={onTransformEnd}
             />
           </Layer>
@@ -554,18 +719,18 @@ export function MatCanvas() {
       {preview && planStats && (
         <div
           role="status"
-          className="pop-in absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-pop bg-ink px-4 py-2.5 text-sm text-white shadow-pop"
+          className="pop-in absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-pop bg-ink px-4 py-2.5 text-sm text-on-ink shadow-pop"
         >
           {previewDone ? <Pause className="size-4 opacity-70" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
           <span>
             {previewDone ? "Cut order finished" : "Cutting"} · {formatLength(planStats.totalLength, doc.unit)} of path in{" "}
             {planStats.passes.length} {planStats.passes.length === 1 ? "pass" : "passes"}
           </span>
-          <Button variant="ghost" className="h-7 px-2 text-white hover:bg-white/15" onClick={() => useEditor.getState().startPreview()}>
+          <Button variant="ghost" className="h-7 px-2 text-on-ink hover:bg-on-ink/15" onClick={() => useEditor.getState().startPreview()}>
             <RotateCcw className="size-3.5" aria-hidden="true" />
             Replay
           </Button>
-          <Button variant="ghost" className="h-7 px-2 text-white hover:bg-white/15" onClick={() => useEditor.getState().stopPreview()}>
+          <Button variant="ghost" className="h-7 px-2 text-on-ink hover:bg-on-ink/15" onClick={() => useEditor.getState().stopPreview()}>
             <X className="size-3.5" aria-hidden="true" />
             Close
           </Button>

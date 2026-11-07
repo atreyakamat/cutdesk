@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "name": "CutDesk sample catalog",
+  "items": [
+    { "id": "diamond", "name": "Diamond", "category": "Basic", "type": "path", "d": "M 30 0 L 60 30 L 30 60 L 0 30 Z", "width": 60, "height": 60 },
+    { "id": "square", "name": "Square", "category": "Basic", "type": "path", "d": "M 0 0 L 60 0 L 60 60 L 0 60 Z", "width": 60, "height": 60 },
+    { "id": "house", "name": "House", "category": "Icons", "type": "path", "d": "M 30 0 L 60 26 L 52 26 L 52 60 L 8 60 L 8 26 L 0 26 Z", "width": 60, "height": 60 },
+    { "id": "arrow", "name": "Arrow", "category": "Icons", "type": "path", "d": "M 0 20 L 36 20 L 36 8 L 60 30 L 36 52 L 36 40 L 0 40 Z", "width": 60, "height": 60 },
+    { "id": "tag", "name": "Price tag", "category": "Icons", "type": "path", "d": "M 4 4 L 34 4 L 60 30 L 34 56 L 4 56 Z", "width": 60, "height": 52 }
+  ]
+}
