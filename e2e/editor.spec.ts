@@ -170,6 +170,20 @@ test.describe("CutDesk editor", () => {
     expect(download.suggestedFilename()).toMatch(/\.png$/);
   });
 
+  test("unions two shapes into one via the Combine buttons", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await page.getByRole("button", { name: "Rectangle" }).click();
+    const c = await matCentre(page);
+    await page.mouse.click(c.x, c.y);
+    await page.getByRole("button", { name: "Rectangle" }).click();
+    await page.mouse.click(c.x + 25, c.y + 25);
+    await page.keyboard.press("Control+a");
+    await expect(page.getByText(/2 objects, 2 selected/)).toBeVisible();
+    await page.getByRole("button", { name: "Union" }).click();
+    await expect(page.getByText(/^1 object/)).toBeVisible();
+  });
+
   test("toggles dark mode and remembers it across a reload", async ({ page }) => {
     await page.goto("/");
     const html = page.locator("html");
