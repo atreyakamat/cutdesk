@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { saveProjectFile } from "@/lib/files";
 import { useEditor, type Tool } from "@/store/editorStore";
 
-const TOOL_KEYS: Record<string, Tool> = {
+export const TOOL_KEYS: Record<string, Tool> = {
   v: "select",
   r: "rect",
   e: "ellipse",
@@ -120,6 +120,11 @@ export function useShortcuts(): void {
           return;
       }
 
+      // "?" on some layouts reports key "/" with Shift held — accept both.
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
+        st.setHelpOpen(true);
+        return;
+      }
       if (key === "i" && !e.altKey) {
         st.openImport();
         return;

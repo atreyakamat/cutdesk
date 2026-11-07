@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Download, FilePlus2, FolderOpen, LayoutTemplate, Play, Redo2, Save, Undo2 } from "lucide-react";
+import { ChevronDown, Download, FilePlus2, FolderOpen, Keyboard, LayoutTemplate, Play, Redo2, Save, Undo2 } from "lucide-react";
 import { DropdownMenu as M } from "radix-ui";
 import type { ReactNode } from "react";
 import { exportPdfFile, exportPngFile, exportPrintableFile, exportSvgFile, openProjectFile, saveProjectFile } from "@/lib/files";
@@ -71,6 +71,7 @@ export function TopBar() {
   const previewing = useEditor((s) => s.preview !== null);
   const newDoc = useEditor((s) => s.newDoc);
   const openTemplates = useEditor((s) => s.setTemplatesOpen);
+  const openHelp = useEditor((s) => s.setHelpOpen);
 
   return (
     <header className="flex h-12 items-center gap-2 border-b border-line bg-panel px-3">
@@ -90,6 +91,7 @@ export function TopBar() {
       <div className="flex items-center">
         <IconButton icon={Undo2} label="Undo" shortcut="Ctrl Z" disabled={!canUndo} onClick={undo} />
         <IconButton icon={Redo2} label="Redo" shortcut="Ctrl Shift Z" disabled={!canRedo} onClick={redo} />
+        <IconButton icon={Keyboard} label="Keyboard shortcuts" shortcut="?" onClick={() => openHelp(true)} />
         <ThemeToggle />
       </div>
 

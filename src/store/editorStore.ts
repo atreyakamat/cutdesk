@@ -91,6 +91,7 @@ interface EditorState {
   importOpen: boolean;
   importFile: File | null;
   templatesOpen: boolean;
+  helpOpen: boolean;
   /** Bumped to ask the inspector to focus the text field. */
   textFocusTick: number;
   panelsOpen: boolean;
@@ -171,6 +172,7 @@ interface EditorState {
   openImport: (file?: File | null) => void;
   closeImport: () => void;
   setTemplatesOpen: (open: boolean) => void;
+  setHelpOpen: (open: boolean) => void;
   setPanelsOpen: (open: boolean) => void;
   openContextMenu: (x: number, y: number) => void;
   closeContextMenu: () => void;
@@ -251,6 +253,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     importOpen: false,
     importFile: null,
     templatesOpen: false,
+    helpOpen: false,
     textFocusTick: 0,
     panelsOpen: false,
     contextMenu: null,
@@ -1023,6 +1026,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     closeImport: () => set({ importOpen: false, importFile: null }),
 
     setTemplatesOpen: (templatesOpen) => set({ templatesOpen }),
+
+    setHelpOpen: (helpOpen) => set({ helpOpen }),
 
     setPanelsOpen: (panelsOpen) => set({ panelsOpen }),
 

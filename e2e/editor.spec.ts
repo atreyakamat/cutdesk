@@ -114,6 +114,15 @@ test.describe("CutDesk editor", () => {
     await expect(page.getByText(/2 objects, 1 selected/)).toBeVisible();
   });
 
+  test("opens the keyboard-shortcut help with ?", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible(); // hydrated
+    await page.keyboard.press("Shift+/"); // "?"
+    await expect(page.getByRole("heading", { name: "Keyboard shortcuts" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "Keyboard shortcuts" })).toBeHidden();
+  });
+
   test("exports the design as a PNG", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
