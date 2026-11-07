@@ -227,6 +227,100 @@ describe("grouping", () => {
   });
 });
 
+describe("distribute", () => {
+  // Three 10-wide rects; after horizontal distribute the gaps between them are equal.
+  function three() {
+    return state().addObjects([
+      { geo: rect(10, 10), init: { x: 0, y: 0 } }, // x 0..10
+      { geo: rect(10, 10), init: { x: 15, y: 0 } }, // x 15..25 (will move)
+      { geo: rect(10, 10), init: { x: 100, y: 0 } }, // x 100..110
+    ]);
+  }
+
+  it("does nothing with fewer than three objects", () => {
+    const [a, b] = state().addObjects([{ geo: rect(10, 10), init: { x: 0, y: 0 } }, { geo: rect(10, 10), init: { x: 50, y: 0 } }]);
+    state().select([a, b]);
+    state().distribute("h");
+    const xs = [a, b].map((id) => worldAABB(state().doc.objects.find((o) => o.id === id)!).minX);
+    expect(xs).toEqual([0, 50]);
+  });
+
+  it("equalises horizontal gaps, anchoring the extremes", () => {
+    const [a, b, c] = three();
+    state().select([a, b, c]);
+    state().distribute("h");
+    const box = (id: string) => worldAABB(state().doc.objects.find((o) => o.id === id)!);
+    // span 0..110, 3×10 wide → free 80, gap 40. Middle sits at 50..60.
+    expect(box(a).minX).toBeCloseTo(0, 6);
+    expect(box(c).maxX).toBeCloseTo(110, 6);
+    expect(box(b).minX).toBeCloseTo(50, 6);
+  });
+
+  it("equalises vertical gaps", () => {
+    const [a, b, c] = state().addObjects([
+      { geo: rect(10, 10), init: { x: 0, y: 0 } },
+      { geo: rect(10, 10), init: { x: 0, y: 15 } },
+      { geo: rect(10, 10), init: { x: 0, y: 100 } },
+    ]);
+    state().select([a, b, c]);
+    state().distribute("v");
+    const box = (id: string) => worldAABB(state().doc.objects.find((o) => o.id === id)!);
+    expect(box(b).minY).toBeCloseTo(50, 6);
+  });
+
+  // --- Adversarial hardening (treat inputs as hostile) ---------------------
+
+  function docWithRects(positions: Array<{ x: number; y: number }>) {
+    const base = createDefaultDoc();
+    const layerId = base.layers[0].id;
+    return {
+      ...base,
+      objects: positions.map((p, i) => ({
+        id: `h${i}`,
+        name: `h${i}`,
+        layerId,
+        geo: { kind: "rect" as const, width: 10, height: 10, cornerRadius: 0 },
+        x: p.x,
+        y: p.y,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+      })),
+    };
+  }
+
+  it("R1: refuses atomically (no-op) when any object has a non-finite coordinate", () => {
+    state().loadDoc(docWithRects([{ x: 0, y: 0 }, { x: 15, y: 0 }, { x: Infinity, y: 0 }]));
+    const before = state().doc.objects.map((o) => o.x);
+    state().select(["h0", "h1", "h2"]);
+    state().distribute("h");
+    // Nothing moves: the finite objects aren't scattered and no new NaN is written.
+    expect(state().doc.objects.map((o) => o.x)).toEqual(before);
+    expect(state().doc.objects.filter((o) => o.id !== "h2").every((o) => Number.isFinite(o.x))).toBe(true);
+  });
+
+  it("R2: zero-span (identical positions) never produces NaN", () => {
+    state().loadDoc(docWithRects([{ x: 5, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 5 }]));
+    state().select(["h0", "h1", "h2"]);
+    state().distribute("h");
+    expect(state().doc.objects.every((o) => Number.isFinite(o.x))).toBe(true);
+  });
+
+  it("R3: large selection distributes correctly without arg-spread overflow", () => {
+    const positions = Array.from({ length: 40 }, (_, i) => ({ x: i === 39 ? 400 : i * 2, y: 0 }));
+    state().loadDoc(docWithRects(positions));
+    state().select(positions.map((_, i) => `h${i}`));
+    state().distribute("h");
+    const box = (i: number) => worldAABB(state().doc.objects.find((o) => o.id === `h${i}`)!);
+    // 40 rects ×10 wide across span 0..410 → free 10, gap 10/39; gaps are equal.
+    const g1 = box(1).minX - box(0).maxX;
+    const g2 = box(2).minX - box(1).maxX;
+    expect(g2).toBeCloseTo(g1, 6);
+    expect(box(0).minX).toBeCloseTo(0, 6);
+    expect(box(39).maxX).toBeCloseTo(410, 6);
+  });
+});
+
 describe("transforms and arrangement", () => {
   it("sets position by bounds and size by bounds", () => {
     const id = state().addObject({ geo: { kind: "ellipse", rx: 10, ry: 10 }, init: { x: 50, y: 50 } });

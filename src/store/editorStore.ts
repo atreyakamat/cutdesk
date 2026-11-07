@@ -126,6 +126,7 @@ interface EditorState {
   setRotation: (deg: number) => void;
   flip: (axis: "x" | "y") => void;
   align: (mode: AlignMode) => void;
+  distribute: (axis: "h" | "v") => void;
   restack: (mode: StackMode) => void;
   renameObject: (id: string, name: string) => void;
   moveToLayer: (ids: readonly string[], layerId: string) => void;
@@ -614,6 +615,41 @@ export const useEditor = create<EditorState>()((set, get) => {
             return translateObject(o, 0, target.y - c.y);
         }
       });
+    },
+
+    distribute: (axis) => {
+      const objs = selectedObjects();
+      if (objs.length < 3) return;
+      const horiz = axis === "h";
+      const boxes = objs.map((o) => ({ id: o.id, b: worldAABB(o) }));
+      // Refuse to act on non-finite geometry rather than scatter objects to NaN.
+      if (boxes.some(({ b }) => ![b.minX, b.minY, b.maxX, b.maxY].every(Number.isFinite))) return;
+
+      const lo = (b: typeof boxes[number]["b"]) => (horiz ? b.minX : b.minY);
+      const hi = (b: typeof boxes[number]["b"]) => (horiz ? b.maxX : b.maxY);
+      const size = (b: typeof boxes[number]["b"]) => hi(b) - lo(b);
+      boxes.sort((p, q) => lo(p.b) - lo(q.b));
+
+      const start = lo(boxes[0].b);
+      // reduce, not Math.max(...spread): a huge selection would overflow the
+      // call-argument limit and throw.
+      const end = boxes.reduce((m, { b }) => Math.max(m, hi(b)), -Infinity);
+      const totalSize = boxes.reduce((s, { b }) => s + size(b), 0);
+      const gap = (end - start - totalSize) / (boxes.length - 1);
+
+      const deltas = new Map<string, number>();
+      let cursor = start;
+      for (const { id, b } of boxes) {
+        deltas.set(id, cursor - lo(b));
+        cursor += size(b) + gap;
+      }
+      get().mapObjects(
+        objs.map((o) => o.id),
+        (o) => {
+          const d = deltas.get(o.id) ?? 0;
+          return horiz ? translateObject(o, d, 0) : translateObject(o, 0, d);
+        },
+      );
     },
 
     restack: (mode) => {

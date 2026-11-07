@@ -5,8 +5,10 @@ import {
   AlignCenterVertical,
   AlignEndHorizontal,
   AlignEndVertical,
+  AlignHorizontalDistributeCenter,
   AlignStartHorizontal,
   AlignStartVertical,
+  AlignVerticalDistributeCenter,
   ArrowDownToLine,
   ArrowUpToLine,
   ChevronDown,
@@ -344,6 +346,20 @@ function SelectionSection() {
             {ALIGN.map((a) => (
               <IconButton key={a.mode} size="sm" icon={a.icon} label={a.label} onClick={() => store().align(a.mode)} />
             ))}
+            <IconButton
+              size="sm"
+              icon={AlignHorizontalDistributeCenter}
+              label="Distribute horizontally"
+              disabled={objs.length < 3}
+              onClick={() => store().distribute("h")}
+            />
+            <IconButton
+              size="sm"
+              icon={AlignVerticalDistributeCenter}
+              label="Distribute vertically"
+              disabled={objs.length < 3}
+              onClick={() => store().distribute("v")}
+            />
           </div>
           <div className="flex flex-wrap gap-0.5">
             <IconButton size="sm" icon={FlipHorizontal2} label="Flip horizontally" onClick={() => store().flip("x")} />
