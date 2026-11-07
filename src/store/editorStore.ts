@@ -17,6 +17,7 @@ import {
 import { booleanRings, offsetRings, pointInRing, ringArea, ringsBBox, ringsToPathData, type BooleanOp, type Ring } from "@/lib/doc/clip";
 import { deleteNode, flattenSegs, insertNode, moveAnchor, moveHandle, nearestOnPath, parsePath, segsBBox, serializePath, transformPoint, type Seg } from "@/lib/doc/pathData";
 import { arcWarpPath } from "@/lib/doc/arcWarp";
+import { nestBoxes } from "@/lib/doc/nest";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
@@ -151,6 +152,7 @@ interface EditorState {
   flip: (axis: "x" | "y") => void;
   align: (mode: AlignMode) => void;
   distribute: (axis: "h" | "v") => void;
+  autoNest: () => void;
   outlineSelection: (deltaMm: number) => void;
   combineSelection: (op: BooleanOp) => void;
   contourSelection: () => void;
@@ -774,6 +776,26 @@ export const useEditor = create<EditorState>()((set, get) => {
           return horiz ? translateObject(o, d, 0) : translateObject(o, 0, d);
         },
       );
+    },
+
+    autoNest: () => {
+      const objs = selectedObjects();
+      if (objs.length < 2) {
+        get().notify("info", "Select two or more objects to arrange them.");
+        return;
+      }
+      const items = objs.map((o) => {
+        const b = worldAABB(o);
+        return { id: o.id, w: b.maxX - b.minX, h: b.maxY - b.minY };
+      });
+      const { mat } = get().doc;
+      const pos = nestBoxes(items, { width: mat.width, gap: 3, margin: 3 });
+      get().mapObjects(get().selection, (o) => {
+        const t = pos.get(o.id);
+        if (!t) return o; // skipped (e.g. non-finite bounds) — leave it where it is
+        const b = worldAABB(o);
+        return translateObject(o, t.x - b.minX, t.y - b.minY);
+      });
     },
 
     outlineSelection: (deltaMm) => {

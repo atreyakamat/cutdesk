@@ -213,6 +213,24 @@ test.describe("CutDesk editor", () => {
     expect(errors, errors.join("\n")).toEqual([]);
   });
 
+  test("arranges shapes to fit without errors", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await page.getByRole("button", { name: "Rectangle" }).click();
+    const c = await matCentre(page);
+    await page.mouse.click(c.x, c.y);
+    await page.getByRole("button", { name: "Rectangle" }).click();
+    await page.mouse.click(c.x + 60, c.y + 40);
+    await page.keyboard.press("Control+a");
+    await expect(page.getByText(/2 objects, 2 selected/)).toBeVisible();
+    await page.getByRole("button", { name: "Arrange to fit" }).click();
+    await expect(page.getByText(/2 objects, 2 selected/)).toBeVisible();
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+
   test("toggles dark mode and remembers it across a reload", async ({ page }) => {
     await page.goto("/");
     const html = page.locator("html");

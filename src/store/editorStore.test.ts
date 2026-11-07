@@ -433,6 +433,51 @@ describe("copy / cut / paste", () => {
   });
 });
 
+describe("auto-nest", () => {
+  it("packs selected objects into a tight row starting at the margin", () => {
+    const ids = state().addObjects([
+      { geo: rect(10, 10), init: { x: 80, y: 90 } },
+      { geo: rect(10, 10), init: { x: 5, y: 200 } },
+      { geo: rect(10, 10), init: { x: 150, y: 10 } },
+    ]);
+    state().select(ids);
+    state().autoNest();
+    const xs = ids.map((id) => worldAABB(state().doc.objects.find((o) => o.id === id)!).minX).sort((a, b) => a - b);
+    const ys = ids.map((id) => worldAABB(state().doc.objects.find((o) => o.id === id)!).minY);
+    expect(xs[0]).toBeCloseTo(3, 1); // margin
+    expect(new Set(xs).size).toBe(3); // spread out, not overlapping
+    expect(ys.every((y) => Math.abs(y - ys[0]) < 1e-6)).toBe(true); // one row (all fit)
+  });
+
+  it("R1: does nothing with fewer than two objects", () => {
+    const id = state().addObject({ geo: rect(10, 10), init: { x: 50, y: 50 } });
+    state().select([id]);
+    state().autoNest();
+    expect(worldAABB(state().doc.objects.find((o) => o.id === id)!).minX).toBeCloseTo(50, 1);
+  });
+
+  it("R2: leaves an object with non-finite bounds untouched (no NaN)", () => {
+    const base = createDefaultDoc();
+    const layerId = base.layers[0].id;
+    const mk = (id: string, x: number) => ({
+      id,
+      name: id,
+      layerId,
+      geo: { kind: "rect" as const, width: 10, height: 10, cornerRadius: 0 },
+      x,
+      y: 0,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+    });
+    state().loadDoc({ ...base, objects: [mk("a", 0), mk("b", 50), { ...mk("c", Infinity) }] });
+    state().select(["a", "b", "c"]);
+    state().autoNest();
+    expect(state().doc.objects.find((o) => o.id === "c")!.x).toBe(Infinity); // untouched
+    expect(state().doc.objects.filter((o) => o.id !== "c").every((o) => Number.isFinite(o.x))).toBe(true);
+  });
+});
+
 describe("outline and boolean ops", () => {
   it("adds an offset outline around a shape", () => {
     const id = state().addObject({ geo: rect(10, 10), init: { x: 10, y: 10 } });
