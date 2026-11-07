@@ -13,6 +13,8 @@ function state() {
 beforeEach(() => {
   vi.useRealTimers();
   state().loadDoc(createDefaultDoc());
+  // The clipboard is intentionally durable across documents, so reset it for isolation.
+  useEditor.setState({ clipboard: null });
 });
 
 describe("adding objects", () => {
@@ -318,6 +320,116 @@ describe("distribute", () => {
     expect(g2).toBeCloseTo(g1, 6);
     expect(box(0).minX).toBeCloseTo(0, 6);
     expect(box(39).maxX).toBeCloseTo(410, 6);
+  });
+});
+
+describe("copy / cut / paste", () => {
+  it("copies and pastes with fresh ids, offset, and selects the paste", () => {
+    const id = state().addObject({ geo: rect(), init: { x: 10, y: 10 } });
+    state().select([id]);
+    state().copy();
+    state().paste();
+    expect(state().doc.objects).toHaveLength(2);
+    const pasted = state().doc.objects.find((o) => o.id !== id)!;
+    expect(pasted.id).not.toBe(id);
+    expect(state().selection).toEqual([pasted.id]);
+    expect(pasted.x).not.toBe(10); // offset
+  });
+
+  it("pastes onto a different page (cross-page clipboard)", () => {
+    const id = state().addObject({ geo: rect(), init: { x: 5, y: 5 } });
+    state().select([id]);
+    state().copy();
+    state().addPage();
+    expect(state().doc.objects).toHaveLength(0);
+    state().paste();
+    expect(state().doc.objects).toHaveLength(1);
+    expect(state().pages[0].objects).toHaveLength(1); // original page unchanged
+  });
+
+  it("cut removes the originals and pastes them back elsewhere", () => {
+    const id = state().addObject({ geo: rect() });
+    state().select([id]);
+    state().cut();
+    expect(state().doc.objects).toHaveLength(0);
+    state().paste();
+    expect(state().doc.objects).toHaveLength(1);
+  });
+
+  it("preserves fill/opacity and re-groups as an independent group", () => {
+    const [a, b] = state().addObjects([{ geo: rect() }, { geo: rect() }]);
+    state().setStyle([a], { fill: "#FF8FA3" });
+    state().select([a, b]);
+    state().group();
+    const gid = state().doc.objects.find((o) => o.id === a)!.groupId;
+    state().copy();
+    state().paste();
+    const pasted = state().doc.objects.filter((o) => o.id !== a && o.id !== b);
+    expect(pasted).toHaveLength(2);
+    expect(pasted.some((o) => o.style?.fill === "#FF8FA3")).toBe(true);
+    const pastedGid = pasted[0].groupId;
+    expect(pastedGid).toBeTruthy();
+    expect(pastedGid).not.toBe(gid); // its own group
+    expect(pasted.every((o) => o.groupId === pastedGid)).toBe(true);
+  });
+
+  it("paste with an empty clipboard is a no-op", () => {
+    const id = state().addObject({ geo: rect() });
+    state().paste();
+    expect(state().doc.objects.map((o) => o.id)).toEqual([id]);
+  });
+
+  // --- Adversarial hardening -----------------------------------------------
+
+  it("R1: pasting an image onto a page without a reference layer creates one (invariant holds)", () => {
+    const [imgId] = state().addObjects([{ geo: image }]);
+    state().select([imgId]);
+    state().copy();
+    state().addPage(); // fresh page: cut + score layers, no print layer
+    state().paste();
+    const pasted = state().doc.objects[0];
+    const layer = state().doc.layers.find((l) => l.id === pasted.layerId)!;
+    expect(pasted.geo.kind).toBe("image");
+    expect(layer.operation).toBe("print"); // image never lands on a cut layer
+  });
+
+  it("R2: clipboard is a snapshot and pastes are independent", () => {
+    const id = state().addObject({ geo: rect(), init: { x: 10, y: 10 } });
+    state().select([id]);
+    state().copy();
+    state().setPosition(100, 100); // move the original AFTER copying
+    state().paste();
+    const first = state().doc.objects.find((o) => o.id !== id)!;
+    expect(first.x).toBeCloseTo(15, 6); // 10 (snapshot) + 5, not 105
+    state().paste();
+    const ids = state().doc.objects.map((o) => o.id);
+    expect(new Set(ids).size).toBe(ids.length); // no id collisions across pastes
+  });
+
+  it("R3: a hostile clipboard (shape tagged with a reference-layer id, NaN coord) can't corrupt the model", () => {
+    const [imgId] = state().addObjects([{ geo: image }]);
+    const printLayer = state().doc.layers.find((l) => l.id === state().doc.objects.find((o) => o.id === imgId)!.layerId)!;
+    // Inject a hand-crafted clipboard: a SHAPE claiming to live on the print layer.
+    useEditor.setState({
+      clipboard: [
+        {
+          id: "evil",
+          name: "evil",
+          layerId: printLayer.id,
+          geo: { kind: "rect", width: 10, height: 10, cornerRadius: 0 },
+          x: Number.NaN,
+          y: 0,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+        },
+      ],
+    });
+    expect(() => state().paste()).not.toThrow();
+    const pasted = state().doc.objects.find((o) => o.name === "evil")!;
+    const layer = state().doc.layers.find((l) => l.id === pasted.layerId)!;
+    expect(layer.operation).not.toBe("print"); // a shape is never placed on a reference layer
+    expect(pasted.id).not.toBe("evil"); // fresh id, never the injected one
   });
 });
 

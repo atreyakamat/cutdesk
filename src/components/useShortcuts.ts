@@ -61,6 +61,21 @@ export function useShortcuts(): void {
         else st.group();
         return;
       }
+      if (mod && key === "c") {
+        e.preventDefault();
+        st.copy();
+        return;
+      }
+      if (mod && key === "x") {
+        e.preventDefault();
+        st.cut();
+        return;
+      }
+      if (mod && key === "v") {
+        e.preventDefault();
+        st.paste();
+        return;
+      }
       if (mod && key === "0") {
         e.preventDefault();
         st.fitView();

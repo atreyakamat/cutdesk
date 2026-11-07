@@ -84,6 +84,8 @@ interface EditorState {
   view: View;
   viewport: { width: number; height: number };
 
+  /** In-app clipboard (survives page switches, enabling cross-page paste). */
+  clipboard: DesignObject[] | null;
   preview: { runId: number } | null;
   notice: Notice | null;
   importOpen: boolean;
@@ -118,6 +120,9 @@ interface EditorState {
   addObject: (item: NewObject) => string;
   removeObjects: (ids: readonly string[]) => void;
   duplicateObjects: (ids: readonly string[]) => void;
+  copy: () => void;
+  cut: () => void;
+  paste: () => void;
   setTransforms: (updates: ReadonlyArray<Transform & { id: string }>) => void;
   mapObjects: (ids: readonly string[], fn: (o: DesignObject) => DesignObject, coalesce?: string) => void;
   nudge: (dx: number, dy: number) => void;
@@ -231,6 +236,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     pages: [initial],
     activePage: 0,
     pageHist: [{ past: [], future: [] }],
+    clipboard: null,
     selection: [],
     activeLayerId: defaultActiveLayer(initial),
     tool: "select",
@@ -548,6 +554,79 @@ export const useEditor = create<EditorState>()((set, get) => {
         return extra.length ? { ...d, objects: [...d.objects, ...extra] } : d;
       });
       if (copies.length) set({ selection: copies });
+    },
+
+    copy: () => {
+      const objs = selectedObjects();
+      if (objs.length === 0) return;
+      // Deep-ish copy so later edits to the originals don't mutate the clipboard.
+      set({
+        clipboard: objs.map((o) => ({ ...o, geo: { ...o.geo }, style: o.style ? { ...o.style } : undefined })),
+      });
+    },
+
+    cut: () => {
+      const objs = selectedObjects();
+      if (objs.length === 0) return;
+      get().copy();
+      get().removeObjects(objs.map((o) => o.id));
+    },
+
+    paste: () => {
+      const clip = get().clipboard;
+      if (!clip || clip.length === 0) return;
+      const pastedIds: string[] = [];
+      const groupMap = new Map<string, string>();
+      get().commitDoc((doc) => {
+        let layers = doc.layers;
+        const objects = [...doc.objects];
+        const active = get().activeLayerId;
+
+        // Resolve a target layer, enforcing the image/print invariant even when
+        // pasting into a page that never had the source layer.
+        const layerFor = (o: DesignObject): string => {
+          const isImage = o.geo.kind === "image";
+          const orig = layers.find((l) => l.id === o.layerId);
+          if (orig && isImage === (orig.operation === "print")) return orig.id;
+          if (isImage) {
+            const found = layers.find((l) => l.operation === "print");
+            if (found) return found.id;
+            const art = createLayer("print", "Artwork");
+            layers = [art, ...layers];
+            return art.id;
+          }
+          const pick =
+            layers.find((l) => l.id === active && l.operation !== "print") ??
+            layers.find((l) => l.operation === "cut") ??
+            layers.find((l) => l.operation !== "print");
+          if (pick) return pick.id;
+          const cut = createLayer("cut");
+          layers = [...layers, cut];
+          return cut.id;
+        };
+
+        for (const src of clip) {
+          const id = newId();
+          pastedIds.push(id);
+          let groupId = src.groupId;
+          if (groupId) {
+            if (!groupMap.has(groupId)) groupMap.set(groupId, newId());
+            groupId = groupMap.get(groupId);
+          }
+          objects.push({
+            ...src,
+            id,
+            layerId: layerFor(src),
+            groupId,
+            x: src.x + 5,
+            y: src.y + 5,
+            geo: { ...src.geo },
+            style: src.style ? { ...src.style } : undefined,
+          });
+        }
+        return { ...doc, layers, objects };
+      });
+      if (pastedIds.length) set({ selection: pastedIds });
     },
 
     setTransforms: (updates) => {
