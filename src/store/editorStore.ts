@@ -6,6 +6,8 @@ import {
   bboxCenter,
   flipHorizontal,
   flipVertical,
+  invertMatrix,
+  matrixOf,
   resizeObjectTo,
   translateObject,
   unionBBox,
@@ -13,7 +15,7 @@ import {
   worldPolylines,
 } from "@/lib/doc/geometry";
 import { booleanRings, offsetRings, pointInRing, ringArea, ringsBBox, ringsToPathData, type BooleanOp, type Ring } from "@/lib/doc/clip";
-import { flattenSegs, parsePath, serializePath, type Seg } from "@/lib/doc/pathData";
+import { flattenSegs, moveAnchor, parsePath, serializePath, transformPoint, type Seg } from "@/lib/doc/pathData";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
@@ -108,6 +110,8 @@ interface EditorState {
   contextMenu: { x: number; y: number } | null;
   /** Last pointer position on the mat, in millimetres. */
   cursor: { x: number; y: number } | null;
+  /** Id of the path whose anchor points are being edited, if any. */
+  nodeEditId: string | null;
 
   // document
   commitDoc: (fn: (doc: Doc) => Doc, opts?: CommitOptions) => void;
@@ -147,6 +151,9 @@ interface EditorState {
   outlineSelection: (deltaMm: number) => void;
   combineSelection: (op: BooleanOp) => void;
   contourSelection: () => void;
+  enterNodeEdit: (id: string) => void;
+  exitNodeEdit: () => void;
+  moveNodeWorld: (segIndex: number, wx: number, wy: number) => void;
   restack: (mode: StackMode) => void;
   renameObject: (id: string, name: string) => void;
   moveToLayer: (ids: readonly string[], layerId: string) => void;
@@ -278,6 +285,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     guidesY: [],
     contextMenu: null,
     cursor: null,
+    nodeEditId: null,
 
     // ----------------------------------------------------------------- document
 
@@ -297,6 +305,7 @@ export const useEditor = create<EditorState>()((set, get) => {
           coalesce: opts?.coalesce ? { key: opts.coalesce, at: now } : null,
           selection: existingIds(next, s.selection),
           activeLayerId: layerOk ? s.activeLayerId : defaultActiveLayer(next),
+          nodeEditId: s.nodeEditId && next.objects.some((o) => o.id === s.nodeEditId) ? s.nodeEditId : null,
         };
       }),
 
@@ -856,6 +865,30 @@ export const useEditor = create<EditorState>()((set, get) => {
         return changed ? { ...d, objects } : d;
       });
       if (!changed) get().notify("info", "No interior holes to remove.");
+    },
+
+    enterNodeEdit: (id) => {
+      const o = get().doc.objects.find((x) => x.id === id);
+      if (o && o.geo.kind === "path") set({ nodeEditId: id, selection: [id] });
+    },
+
+    exitNodeEdit: () => set((s) => (s.nodeEditId ? { nodeEditId: null } : s)),
+
+    moveNodeWorld: (segIndex, wx, wy) => {
+      const id = get().nodeEditId;
+      if (!id || !Number.isFinite(wx) || !Number.isFinite(wy)) return;
+      const o = get().doc.objects.find((x) => x.id === id);
+      if (!o || o.geo.kind !== "path") return;
+      const inv = invertMatrix(matrixOf(o));
+      if (!inv) return;
+      const local = transformPoint(inv, wx, wy);
+      const segs = parsePath(o.geo.d);
+      const anchor = segs[segIndex];
+      if (!anchor || anchor.t === "Z") return;
+      const dx = local.x - anchor.x;
+      const dy = local.y - anchor.y;
+      const moved = moveAnchor(segs, segIndex, dx, dy);
+      get().mapObjects([id], (obj) => (obj.geo.kind === "path" ? { ...obj, geo: { ...obj.geo, d: serializePath(moved, 3) } } : obj), "node");
     },
 
     restack: (mode) => {

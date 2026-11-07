@@ -5,10 +5,10 @@ import { Pause, Play, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Ellipse, Layer, Path, Rect, Stage, Transformer } from "react-konva";
 import { buildCutPlan } from "@/lib/doc/cutPlan";
-import { bboxesIntersect, unionBBox, worldAABB } from "@/lib/doc/geometry";
+import { bboxesIntersect, matrixOf, unionBBox, worldAABB } from "@/lib/doc/geometry";
 import { computeSnap, distributionSnap, snapBoxes, snapTargets, type SnapLines, type SpacingGuide } from "@/lib/doc/snapping";
 import { clamp, formatLength } from "@/lib/doc/units";
-import { normalizeSegs, serializePath } from "@/lib/doc/pathData";
+import { normalizeSegs, parsePath, pathAnchors, serializePath, transformPoint } from "@/lib/doc/pathData";
 import { canFinishPen, dropDuplicateTail, penSegs, type PenNode } from "@/lib/doc/pen";
 import type { BBox, Point } from "@/lib/doc/types";
 import { useEditor } from "@/store/editorStore";
@@ -79,7 +79,18 @@ export function MatCanvas() {
   const preview = useEditor((s) => s.preview);
   const guidesX = useEditor((s) => s.guidesX);
   const guidesY = useEditor((s) => s.guidesY);
+  const nodeEditId = useEditor((s) => s.nodeEditId);
   const setViewport = useEditor((s) => s.setViewport);
+
+  const nodeEditObj = useMemo(
+    () => (nodeEditId ? doc.objects.find((o) => o.id === nodeEditId) ?? null : null),
+    [nodeEditId, doc.objects],
+  );
+  const nodeAnchors = useMemo(() => {
+    if (!nodeEditObj || nodeEditObj.geo.kind !== "path") return [];
+    const m = matrixOf(nodeEditObj);
+    return pathAnchors(parsePath(nodeEditObj.geo.d)).map((a) => ({ seg: a.seg, ...transformPoint(m, a.x, a.y) }));
+  }, [nodeEditObj]);
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
@@ -166,6 +177,22 @@ export function MatCanvas() {
     [cancelPen],
   );
 
+  const onDblClick = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+      const st = useEditor.getState();
+      if (st.tool === "pen") {
+        finishPen(false);
+        return;
+      }
+      // Double-clicking a path enters node editing.
+      if (st.tool === "select" && e.target.name() === "obj") {
+        const o = st.doc.objects.find((x) => x.id === e.target.id());
+        if (o?.geo.kind === "path") st.enterNodeEdit(e.target.id());
+      }
+    },
+    [finishPen],
+  );
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (isTyping(e.target)) return;
@@ -185,6 +212,7 @@ export function MatCanvas() {
         }
       }
       if (e.key === "Escape") {
+        if (useEditor.getState().nodeEditId) useEditor.getState().exitNodeEdit();
         gesture.current = null;
         setDraft(null);
         setPanning(false);
@@ -213,12 +241,17 @@ export function MatCanvas() {
     const tr = trRef.current;
     const stage = stageRef.current;
     if (!tr || !stage) return;
-    const want = new Set(preview || tool !== "select" ? [] : selection);
+    const want = new Set(preview || tool !== "select" || nodeEditId ? [] : selection);
     const nodes = stage.find<Konva.Node>(".obj").filter((n) => want.has(n.id()));
     tr.nodes(nodes);
     tr.forceUpdate();
     tr.getLayer()?.batchDraw();
-  }, [selection, tool, preview, doc.objects, doc.layers, view.scale]);
+  }, [selection, tool, preview, nodeEditId, doc.objects, doc.layers, view.scale]);
+
+  // Leaving the select tool exits node editing.
+  useEffect(() => {
+    if (tool !== "select") useEditor.getState().exitNodeEdit();
+  }, [tool]);
 
   // ----------------------------------------------------------------- cursor
 
@@ -258,6 +291,11 @@ export function MatCanvas() {
     }
     if (button !== 0) return;
     if (e.target.getParent()?.className === "Transformer") return;
+
+    if (st.nodeEditId) {
+      if (e.target.name() === "node") return; // let the handle drag
+      st.exitNodeEdit(); // a click elsewhere leaves node editing, then proceeds
+    }
 
     switch (st.tool) {
       case "select": {
@@ -698,8 +736,8 @@ export function MatCanvas() {
           onTouchStart={onDown}
           onMouseMove={onMove}
           onTouchMove={onMove}
-          onDblClick={() => tool === "pen" && finishPen(false)}
-          onDblTap={() => tool === "pen" && finishPen(false)}
+          onDblClick={onDblClick}
+          onDblTap={onDblClick}
           aria-label="Cutting mat canvas"
         >
           <Layer opacity={preview ? 0.28 : 1}>
@@ -721,6 +759,24 @@ export function MatCanvas() {
           </Layer>
           <Layer>
             {userGuides}
+            {nodeEditObj &&
+              nodeAnchors.map((a) => (
+                <Rect
+                  key={a.seg}
+                  name="node"
+                  x={a.x - 5 / view.scale}
+                  y={a.y - 5 / view.scale}
+                  width={10 / view.scale}
+                  height={10 / view.scale}
+                  fill="#ffffff"
+                  stroke={SELECT_BLUE}
+                  strokeWidth={1.4}
+                  strokeScaleEnabled={false}
+                  draggable
+                  onDragMove={(e) => useEditor.getState().moveNodeWorld(a.seg, e.target.x() + 5 / view.scale, e.target.y() + 5 / view.scale)}
+                  onDragEnd={(e) => useEditor.getState().moveNodeWorld(a.seg, e.target.x() + 5 / view.scale, e.target.y() + 5 / view.scale)}
+                />
+              ))}
             {guideShapes}
             {spacingShapes}
             {draftShape}

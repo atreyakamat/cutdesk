@@ -497,6 +497,53 @@ describe("outline and boolean ops", () => {
   });
 });
 
+describe("node editing", () => {
+  const anchorsOf = (d: string) => {
+    // tiny inline reader to avoid importing pathData just for the test
+    return (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  };
+
+  it("enters node edit on a path and moves an anchor to a world point", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0L10 10" }, init: { x: 0, y: 0 } });
+    state().enterNodeEdit(id);
+    expect(state().nodeEditId).toBe(id);
+    state().moveNodeWorld(1, 20, 5); // identity transform → local (20,5)
+    const d = (state().doc.objects.find((o) => o.id === id)!.geo as { d: string }).d;
+    const nums = anchorsOf(d);
+    expect(nums.slice(2, 4)).toEqual([20, 5]); // second anchor
+  });
+
+  it("inverse-transforms through the object's scale", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0" } });
+    state().mapObjects([id], (o) => ({ ...o, scaleX: 2, scaleY: 2, x: 0, y: 0 }));
+    state().enterNodeEdit(id);
+    state().moveNodeWorld(1, 40, 0); // world 40 / scale 2 → local 20
+    const d = (state().doc.objects.find((o) => o.id === id)!.geo as { d: string }).d;
+    expect(anchorsOf(d).slice(2, 4)).toEqual([20, 0]);
+  });
+
+  it("R1: moveNodeWorld is a no-op when not in node-edit mode", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0" } });
+    state().exitNodeEdit();
+    const before = (state().doc.objects.find((o) => o.id === id)!.geo as { d: string }).d;
+    state().moveNodeWorld(1, 99, 99);
+    expect((state().doc.objects.find((o) => o.id === id)!.geo as { d: string }).d).toBe(before);
+  });
+
+  it("R2: refuses to node-edit a non-path", () => {
+    const id = state().addObject({ geo: { kind: "ellipse", rx: 5, ry: 5 } });
+    state().enterNodeEdit(id);
+    expect(state().nodeEditId).toBeNull();
+  });
+
+  it("R3: deleting the edited path clears node-edit mode", () => {
+    const id = state().addObject({ geo: { kind: "path", d: "M0 0L10 0" } });
+    state().enterNodeEdit(id);
+    state().removeObjects([id]);
+    expect(state().nodeEditId).toBeNull();
+  });
+});
+
 describe("contour (remove holes)", () => {
   const mCount = (d: string) => (d.match(/M/gi) ?? []).length;
   // Outer 0..20 square with an inner 5..15 square hole.

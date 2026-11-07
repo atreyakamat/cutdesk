@@ -20,6 +20,14 @@ export function matrixOf(t: Transform): Matrix {
   return [cos * t.scaleX, sin * t.scaleX, -sin * t.scaleY, cos * t.scaleY, t.x, t.y];
 }
 
+/** Inverse of an affine matrix, or null when it isn't invertible. */
+export function invertMatrix(m: Matrix): Matrix | null {
+  const [a, b, c, d, e, f] = m;
+  const det = a * d - b * c;
+  if (!det || !Number.isFinite(det)) return null;
+  return [d / det, -b / det, -c / det, a / det, (c * f - d * e) / det, (b * e - a * f) / det];
+}
+
 /** Local-space segments for any geometry that can be cut or drawn. */
 export function geoSegs(geo: Geometry): Seg[] | null {
   switch (geo.kind) {

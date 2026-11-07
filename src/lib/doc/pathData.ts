@@ -199,6 +199,43 @@ function fmt(n: number, precision: number): string {
   return String(Object.is(v, -0) ? 0 : v);
 }
 
+export interface AnchorRef {
+  x: number;
+  y: number;
+  /** Index of the owning segment. */
+  seg: number;
+}
+
+/** On-curve anchor point of every non-Z segment. */
+export function pathAnchors(segs: readonly Seg[]): AnchorRef[] {
+  const out: AnchorRef[] = [];
+  segs.forEach((s, i) => {
+    if (s.t !== "Z") out.push({ x: s.x, y: s.y, seg: i });
+  });
+  return out;
+}
+
+/**
+ * Move the anchor owned by `segIndex` by (dx, dy), carrying its bezier handles
+ * (the segment's own incoming handle and the next segment's outgoing handle) so
+ * the curve shape around the node is preserved.
+ */
+export function moveAnchor(segs: readonly Seg[], segIndex: number, dx: number, dy: number): Seg[] {
+  if (segIndex < 0 || segIndex >= segs.length || segs[segIndex].t === "Z") return segs.slice();
+  return segs.map((s, i) => {
+    if (i === segIndex) {
+      if (s.t === "M" || s.t === "L") return { ...s, x: s.x + dx, y: s.y + dy };
+      if (s.t === "C") return { ...s, x2: s.x2 + dx, y2: s.y2 + dy, x: s.x + dx, y: s.y + dy };
+      if (s.t === "Q") return { ...s, x1: s.x1 + dx, y1: s.y1 + dy, x: s.x + dx, y: s.y + dy };
+    }
+    if (i === segIndex + 1) {
+      if (s.t === "C") return { ...s, x1: s.x1 + dx, y1: s.y1 + dy };
+      if (s.t === "Q") return { ...s, x1: s.x1 + dx, y1: s.y1 + dy };
+    }
+    return s;
+  });
+}
+
 export function serializePath(segs: readonly Seg[], precision = 3): string {
   const f = (n: number) => fmt(n, precision);
   return segs
