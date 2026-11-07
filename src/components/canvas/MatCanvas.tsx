@@ -637,7 +637,16 @@ export function MatCanvas() {
     <div
       ref={wrapRef}
       className="absolute inset-0 touch-none overflow-hidden"
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const st = useEditor.getState();
+        if (st.preview) return;
+        const stage = stageRef.current;
+        const pos = stage?.getPointerPosition();
+        const hit = stage && pos ? stage.getIntersection(pos) : null;
+        if (hit && hit.name() === "obj" && !st.selection.includes(hit.id())) st.select([hit.id()]);
+        st.openContextMenu(e.clientX, e.clientY);
+      }}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) e.preventDefault();
       }}

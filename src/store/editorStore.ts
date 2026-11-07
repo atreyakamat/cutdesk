@@ -94,6 +94,8 @@ interface EditorState {
   /** Bumped to ask the inspector to focus the text field. */
   textFocusTick: number;
   panelsOpen: boolean;
+  /** Canvas right-click menu anchor, in client (screen) pixels. */
+  contextMenu: { x: number; y: number } | null;
   /** Last pointer position on the mat, in millimetres. */
   cursor: { x: number; y: number } | null;
 
@@ -170,6 +172,8 @@ interface EditorState {
   closeImport: () => void;
   setTemplatesOpen: (open: boolean) => void;
   setPanelsOpen: (open: boolean) => void;
+  openContextMenu: (x: number, y: number) => void;
+  closeContextMenu: () => void;
 }
 
 let noticeSeq = 0;
@@ -249,6 +253,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     templatesOpen: false,
     textFocusTick: 0,
     panelsOpen: false,
+    contextMenu: null,
     cursor: null,
 
     // ----------------------------------------------------------------- document
@@ -1020,6 +1025,10 @@ export const useEditor = create<EditorState>()((set, get) => {
     setTemplatesOpen: (templatesOpen) => set({ templatesOpen }),
 
     setPanelsOpen: (panelsOpen) => set({ panelsOpen }),
+
+    openContextMenu: (x, y) => set({ contextMenu: { x, y } }),
+
+    closeContextMenu: () => set((s) => (s.contextMenu ? { contextMenu: null } : s)),
   };
 });
 

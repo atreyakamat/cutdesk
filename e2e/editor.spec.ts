@@ -100,6 +100,20 @@ test.describe("CutDesk editor", () => {
     expect(errors, errors.join("\n")).toEqual([]);
   });
 
+  test("right-click opens the context menu and duplicates", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await page.getByRole("button", { name: "Rectangle" }).click();
+    const c = await matCentre(page);
+    await page.mouse.click(c.x, c.y);
+    await expect(page.getByText(/1 object/)).toBeVisible();
+
+    await page.mouse.click(c.x, c.y, { button: "right" });
+    await expect(page.getByRole("menu", { name: "Canvas actions" })).toBeVisible();
+    await page.getByRole("menuitem", { name: /Duplicate/ }).click();
+    await expect(page.getByText(/2 objects, 1 selected/)).toBeVisible();
+  });
+
   test("exports the design as a PNG", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();

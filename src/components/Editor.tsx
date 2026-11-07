@@ -4,6 +4,7 @@ import { EmptyState } from "./EmptyState";
 import { ImportDialog } from "./ImportDialog";
 import { Inspector } from "./Inspector";
 import { LayersPanel } from "./LayersPanel";
+import { CanvasContextMenu } from "./CanvasContextMenu";
 import { NoticeToast } from "./NoticeToast";
 import { PageBar } from "./PageBar";
 import { StatusBar } from "./StatusBar";
@@ -49,6 +50,7 @@ export default function Editor() {
       </div>
       <ImportDialog />
       <TemplatesDialog />
+      <CanvasContextMenu />
       <NoticeToast />
     </TooltipProvider>
   );
