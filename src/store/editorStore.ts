@@ -29,6 +29,7 @@ import type {
 } from "@/lib/doc/types";
 import { clamp } from "@/lib/doc/units";
 import { loadFont, textOutline } from "@/lib/text/fonts";
+import type { SaveStatus } from "@/lib/ui/saveStatus";
 
 export type Tool = "select" | "rect" | "ellipse" | "pen" | "text" | "hand";
 
@@ -92,6 +93,7 @@ interface EditorState {
   importFile: File | null;
   templatesOpen: boolean;
   helpOpen: boolean;
+  saveStatus: SaveStatus;
   /** Bumped to ask the inspector to focus the text field. */
   textFocusTick: number;
   panelsOpen: boolean;
@@ -173,6 +175,7 @@ interface EditorState {
   closeImport: () => void;
   setTemplatesOpen: (open: boolean) => void;
   setHelpOpen: (open: boolean) => void;
+  setSaveStatus: (status: SaveStatus) => void;
   setPanelsOpen: (open: boolean) => void;
   openContextMenu: (x: number, y: number) => void;
   closeContextMenu: () => void;
@@ -254,6 +257,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     importFile: null,
     templatesOpen: false,
     helpOpen: false,
+    saveStatus: "idle",
     textFocusTick: 0,
     panelsOpen: false,
     contextMenu: null,
@@ -1028,6 +1032,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     setTemplatesOpen: (templatesOpen) => set({ templatesOpen }),
 
     setHelpOpen: (helpOpen) => set({ helpOpen }),
+
+    setSaveStatus: (saveStatus) => set((s) => (s.saveStatus === saveStatus ? s : { saveStatus })),
 
     setPanelsOpen: (panelsOpen) => set({ panelsOpen }),
 

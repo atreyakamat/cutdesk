@@ -26,12 +26,15 @@ export function useAutosave(): void {
 
     const unsubscribe = useEditor.subscribe((state, prev) => {
       if (state.doc === prev.doc && state.pages === prev.pages && state.activePage === prev.activePage) return;
+      useEditor.getState().setSaveStatus("saving");
       clearTimeout(timer);
       timer = setTimeout(() => {
         try {
           const { pages, activePage } = useEditor.getState();
           window.localStorage.setItem(KEY, serializeProject({ pages, activePage }));
+          useEditor.getState().setSaveStatus("saved");
         } catch {
+          useEditor.getState().setSaveStatus("error");
           if (!warned) {
             warned = true;
             useEditor

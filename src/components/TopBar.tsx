@@ -7,6 +7,7 @@ import { exportPdfFile, exportPngFile, exportPrintableFile, exportSvgFile, openP
 import type { ExportKind } from "@/lib/doc/svg";
 import { useEditor } from "@/store/editorStore";
 import { Logo } from "./Logo";
+import { SaveIndicator } from "./SaveIndicator";
 import { SendDialog } from "./SendDialog";
 import { Button } from "./ui/Controls";
 import { IconButton } from "./ui/IconButton";
@@ -87,6 +88,8 @@ export function TopBar() {
         maxLength={80}
         className="h-8 w-16 min-w-0 flex-1 sm:flex-none rounded-control border border-transparent bg-transparent px-2 text-sm font-medium hover:border-line focus:border-ink focus:bg-raised sm:w-56"
       />
+
+      <SaveIndicator />
 
       <div className="flex items-center">
         <IconButton icon={Undo2} label="Undo" shortcut="Ctrl Z" disabled={!canUndo} onClick={undo} />

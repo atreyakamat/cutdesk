@@ -123,6 +123,15 @@ test.describe("CutDesk editor", () => {
     await expect(page.getByRole("heading", { name: "Keyboard shortcuts" })).toBeHidden();
   });
 
+  test("shows the autosave 'Saved' indicator after an edit", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await page.getByRole("button", { name: "Rectangle" }).click();
+    const c = await matCentre(page);
+    await page.mouse.click(c.x, c.y);
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  });
+
   test("exports the design as a PNG", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
