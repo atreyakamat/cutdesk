@@ -20,6 +20,33 @@ export interface CutPlan {
 
 const ORDER: readonly Exclude<Operation, "print">[] = ["draw", "score", "cut"];
 
+const bboxArea = (b: BBox) => Math.max(0, b.maxX - b.minX) * Math.max(0, b.maxY - b.minY);
+
+/** True if `outer` strictly contains `inner` (bounding-box test, with tolerance). */
+function contains(outer: BBox, inner: BBox, eps = 0.01): boolean {
+  return (
+    bboxArea(outer) > bboxArea(inner) + 1e-6 &&
+    inner.minX >= outer.minX - eps &&
+    inner.minY >= outer.minY - eps &&
+    inner.maxX <= outer.maxX + eps &&
+    inner.maxY <= outer.maxY + eps
+  );
+}
+
+/**
+ * Reorder so a shape contained within others comes first (inner-before-outer),
+ * which stops small cut-out pieces shifting once the outline is cut. Stable for
+ * unrelated shapes; non-finite bounds just don't nest.
+ */
+export function innerFirstOrder<T>(items: readonly T[], box: (t: T) => BBox): T[] {
+  const boxes = items.map(box);
+  const depth = boxes.map((b, i) => boxes.reduce((n, ob, j) => n + (j !== i && contains(ob, b) ? 1 : 0), 0));
+  return items
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => depth[b.i] - depth[a.i] || a.i - b.i)
+    .map((x) => x.t);
+}
+
 /**
  * The sequence a machine would follow: draw first, then score, then cut, with
  * layer and object order preserved inside each operation. Reference artwork is
@@ -46,7 +73,10 @@ export function buildCutPlan(doc: Doc): CutPlan {
         return la - lb || a.order - b.order;
       });
 
-    for (const { o } of objects) {
+    // Cut (and score/draw) contained shapes before the shapes enclosing them.
+    const ordered = innerFirstOrder(objects, ({ o }) => worldAABB(o));
+
+    for (const { o } of ordered) {
       for (const line of worldPolylines(o)) {
         if (line.points.length < 2) continue;
         const length = polylineLength(line);
