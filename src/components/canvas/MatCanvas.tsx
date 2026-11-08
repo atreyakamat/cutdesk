@@ -743,8 +743,16 @@ export function MatCanvas() {
         const file = e.dataTransfer.files[0];
         if (!file) return;
         e.preventDefault();
-        if (file.type.startsWith("image/")) useEditor.getState().openImport(file);
-        else useEditor.getState().notify("error", "Drop a PNG, JPG, WebP or SVG image to trace it.");
+        if (file.type === "image/svg+xml" || /\.svg$/i.test(file.name)) {
+          file
+            .text()
+            .then((t) => useEditor.getState().importSvgText(t, file.name.replace(/\.[^.]+$/, "") || "SVG"))
+            .catch(() => useEditor.getState().notify("error", "Couldn't read that SVG file."));
+        } else if (file.type.startsWith("image/")) {
+          useEditor.getState().openImport(file);
+        } else {
+          useEditor.getState().notify("error", "Drop an SVG to import, or a PNG/JPG/WebP to trace.");
+        }
       }}
     >
       <MatBackdrop />

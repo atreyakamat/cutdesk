@@ -433,6 +433,24 @@ describe("copy / cut / paste", () => {
   });
 });
 
+describe("SVG import", () => {
+  it("imports an SVG's shapes as path objects on the mat", () => {
+    state().importSvgText(
+      `<svg viewBox="0 0 100 100"><rect x="0" y="0" width="20" height="20"/><circle cx="60" cy="60" r="10"/></svg>`,
+      "Art",
+    );
+    const paths = state().doc.objects.filter((o) => o.geo.kind === "path");
+    expect(paths.length).toBe(2);
+    expect(paths.every((p) => (p.geo as { d: string }).d.startsWith("M"))).toBe(true);
+  });
+
+  it("adds nothing for an SVG with no shapes", () => {
+    const before = state().doc.objects.length;
+    state().importSvgText(`<svg viewBox="0 0 10 10"></svg>`, "Empty");
+    expect(state().doc.objects.length).toBe(before);
+  });
+});
+
 describe("auto-nest", () => {
   it("packs selected objects into a tight row starting at the margin", () => {
     const ids = state().addObjects([

@@ -18,6 +18,7 @@ import { booleanRings, offsetRings, pointInRing, ringArea, ringsBBox, ringsToPat
 import { deleteNode, flattenSegs, insertNode, moveAnchor, moveHandle, nearestOnPath, parsePath, segsBBox, serializePath, transformPoint, type Seg } from "@/lib/doc/pathData";
 import { arcWarpPath } from "@/lib/doc/arcWarp";
 import { nestBoxes } from "@/lib/doc/nest";
+import { parseSvg } from "@/lib/svg/importSvg";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
@@ -138,6 +139,7 @@ interface EditorState {
   // objects
   addObjects: (items: NewObject[]) => string[];
   addObject: (item: NewObject) => string;
+  importSvgText: (text: string, name?: string) => void;
   removeObjects: (ids: readonly string[]) => void;
   duplicateObjects: (ids: readonly string[]) => void;
   copy: () => void;
@@ -573,6 +575,24 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
 
     addObject: (item) => get().addObjects([item])[0],
+
+    importSvgText: (text, name = "SVG") => {
+      const { mat } = get().doc;
+      const parsed = parseSvg(text, { sizeMm: Math.min(mat.width, mat.height) * 0.6 });
+      if (parsed.paths.length === 0) {
+        get().notify("error", "No shapes found in that SVG. Try tracing it as an image instead.");
+        return;
+      }
+      const ox = Math.max(0, (mat.width - parsed.width) / 2);
+      const oy = Math.max(0, (mat.height - parsed.height) / 2);
+      const items: NewObject[] = parsed.paths.map((p, i) => ({
+        geo: { kind: "path", d: p.d },
+        name: parsed.paths.length > 1 ? `${name} ${i + 1}` : name,
+        init: { x: ox + p.x, y: oy + p.y },
+      }));
+      get().addObjects(items);
+      get().notify("info", `Imported ${items.length} path${items.length === 1 ? "" : "s"} from ${name}.`);
+    },
 
     removeObjects: (ids) => {
       const drop = new Set(ids);

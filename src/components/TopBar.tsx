@@ -1,9 +1,9 @@
 "use client";
 
-import { ChevronDown, Download, FilePlus2, FolderOpen, Keyboard, LayoutTemplate, Play, Redo2, Save, Undo2 } from "lucide-react";
+import { ChevronDown, Download, FilePlus2, FileUp, FolderOpen, Keyboard, LayoutTemplate, Play, Redo2, Save, Undo2 } from "lucide-react";
 import { DropdownMenu as M } from "radix-ui";
 import type { ReactNode } from "react";
-import { exportPdfFile, exportPngFile, exportPrintableFile, exportSvgFile, openProjectFile, saveProjectFile } from "@/lib/files";
+import { exportPdfFile, exportPngFile, exportPrintableFile, exportSvgFile, openProjectFile, openSvgFile, saveProjectFile } from "@/lib/files";
 import type { ExportKind } from "@/lib/doc/svg";
 import { useEditor } from "@/store/editorStore";
 import { Logo } from "./Logo";
@@ -121,6 +121,9 @@ export function TopBar() {
           </Item>
           <Item icon={<LayoutTemplate className="size-4" />} onSelect={() => openTemplates(true)}>
             Templates & pages…
+          </Item>
+          <Item icon={<FileUp className="size-4" />} onSelect={() => void openSvgFile()}>
+            Import SVG…
           </Item>
           <Item icon={<FolderOpen className="size-4" />} onSelect={() => void openProjectFile()}>
             Open project…

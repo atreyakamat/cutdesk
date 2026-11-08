@@ -128,6 +128,17 @@ export function saveProjectFile(): void {
   notify("info", `Saved ${slugify(doc.name)}${PROJECT_EXTENSION}${pageNote}.`);
 }
 
+export async function openSvgFile(file?: File | null): Promise<void> {
+  const st = useEditor.getState();
+  const picked = file ?? (await pickFile(".svg,image/svg+xml"));
+  if (!picked) return;
+  try {
+    st.importSvgText(await picked.text(), picked.name.replace(/\.[^.]+$/, "") || "SVG");
+  } catch {
+    st.notify("error", "Couldn't read that SVG file.");
+  }
+}
+
 export async function openProjectFile(file?: File | null): Promise<void> {
   const st = useEditor.getState();
   const picked = file ?? (await pickFile(`${PROJECT_EXTENSION},.json,application/json`));
