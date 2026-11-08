@@ -69,6 +69,8 @@ const object = z.object({
     })
     .optional(),
   groupId: z.string().min(1).max(64).optional(),
+  locked: z.boolean().optional(),
+  hidden: z.boolean().optional(),
 });
 
 const docSchema = z.object({

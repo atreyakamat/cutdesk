@@ -131,7 +131,7 @@ export function MatCanvas() {
   const layerById = useMemo(() => new Map(doc.layers.map((l) => [l.id, l] as const)), [doc.layers]);
   const objectById = useMemo(() => new Map(doc.objects.map((o) => [o.id, o] as const)), [doc.objects]);
   const ordered = useMemo(
-    () => doc.layers.flatMap((l) => (l.visible ? doc.objects.filter((o) => o.layerId === l.id) : [])),
+    () => doc.layers.flatMap((l) => (l.visible ? doc.objects.filter((o) => o.layerId === l.id && !o.hidden) : [])),
     [doc.layers, doc.objects],
   );
 
@@ -268,12 +268,13 @@ export function MatCanvas() {
     const tr = trRef.current;
     const stage = stageRef.current;
     if (!tr || !stage) return;
-    const want = new Set(preview || tool !== "select" || nodeEditId ? [] : selection);
+    const base = preview || tool !== "select" || nodeEditId ? [] : selection;
+    const want = new Set(base.filter((id) => !objectById.get(id)?.locked)); // locked objects don't transform
     const nodes = stage.find<Konva.Node>(".obj").filter((n) => want.has(n.id()));
     tr.nodes(nodes);
     tr.forceUpdate();
     tr.getLayer()?.batchDraw();
-  }, [selection, tool, preview, nodeEditId, doc.objects, doc.layers, view.scale]);
+  }, [selection, tool, preview, nodeEditId, objectById, doc.objects, doc.layers, view.scale]);
 
   // Leaving the select tool exits node editing.
   useEffect(() => {
@@ -404,7 +405,7 @@ export function MatCanvas() {
       if (box.width < 1 && box.height < 1) return;
       const frame = { minX: box.x, minY: box.y, maxX: box.x + box.width, maxY: box.y + box.height };
       const open = new Set(st.doc.layers.filter((l) => l.visible && !l.locked).map((l) => l.id));
-      const hits = st.doc.objects.filter((o) => open.has(o.layerId) && bboxesIntersect(worldAABB(o), frame)).map((o) => o.id);
+      const hits = st.doc.objects.filter((o) => open.has(o.layerId) && !o.hidden && !o.locked && bboxesIntersect(worldAABB(o), frame)).map((o) => o.id);
       st.select(hits, g.additive || shift);
     } else if (g.kind === "shape") {
       setDraft(null);

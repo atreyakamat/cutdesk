@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDefaultDoc } from "@/lib/doc/defaults";
+import { buildCutPlan } from "@/lib/doc/cutPlan";
 import { worldAABB } from "@/lib/doc/geometry";
 import { useEditor } from "./editorStore";
 
@@ -715,6 +716,38 @@ describe("guides", () => {
   it("R3: caps the number of guides", () => {
     for (let i = 0; i < 100; i++) state().addGuide("x", i);
     expect(state().guidesX.length).toBe(64);
+  });
+});
+
+describe("lock and hide", () => {
+  it("locked objects resist deletion but can be unlocked", () => {
+    const id = state().addObject({ geo: rect() });
+    state().setObjectLocked([id], true);
+    state().removeObjects([id]);
+    expect(state().doc.objects.some((o) => o.id === id)).toBe(true); // kept
+    state().setObjectLocked([id], false);
+    state().removeObjects([id]);
+    expect(state().doc.objects.some((o) => o.id === id)).toBe(false); // now gone
+  });
+
+  it("locked objects are not picked up by select-all", () => {
+    const [a, b] = state().addObjects([{ geo: rect() }, { geo: rect(), init: { x: 50, y: 0 } }]);
+    state().setObjectLocked([b], true);
+    state().selectAll();
+    expect(state().selection).toEqual([a]);
+  });
+
+  it("hidden objects drop from selection, select-all and the cut plan, and recover", () => {
+    const vis = state().addObject({ geo: rect() });
+    const hid = state().addObject({ geo: rect(), init: { x: 50, y: 50 } });
+    state().select([hid]);
+    state().setObjectHidden([hid], true);
+    expect(state().selection).not.toContain(hid); // cleared from selection
+    state().selectAll();
+    expect(state().selection).toEqual([vis]);
+    expect(buildCutPlan(state().doc).passes.some((p) => p.objectId === hid)).toBe(false);
+    state().showAllObjects();
+    expect(state().doc.objects.find((o) => o.id === hid)!.hidden).toBeUndefined();
   });
 });
 

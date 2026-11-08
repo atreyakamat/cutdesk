@@ -65,7 +65,7 @@ export function buildCutPlan(doc: Doc): CutPlan {
       .map((o, order) => ({ o, order }))
       .filter(({ o }) => {
         const layer = layers.get(o.layerId);
-        return layer && layer.visible && layer.operation === op;
+        return layer && layer.visible && !o.hidden && layer.operation === op;
       })
       .sort((a, b) => {
         const la = layerIndex.get(a.o.layerId) ?? 0;
@@ -123,7 +123,7 @@ export function objectsOutsideMat(doc: Doc): string[] {
   return doc.objects
     .filter((o) => {
       const layer = layers.get(o.layerId);
-      if (!layer || layer.operation === "print" || !layer.visible) return false;
+      if (!layer || layer.operation === "print" || !layer.visible || o.hidden) return false;
       const box = worldAABB(o);
       const inside =
         box.minX >= mat.minX - eps && box.minY >= mat.minY - eps && box.maxX <= mat.maxX + eps && box.maxY <= mat.maxY + eps;

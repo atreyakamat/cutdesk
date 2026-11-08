@@ -23,6 +23,8 @@ export function StatusBar() {
   const setSnapToGrid = useEditor((s) => s.setSnapToGrid);
 
   const outside = useMemo(() => objectsOutsideMat(doc).length, [doc]);
+  const hidden = useMemo(() => doc.objects.filter((o) => o.hidden).length, [doc.objects]);
+  const showAll = useEditor((s) => s.showAllObjects);
   const cx = viewport.width / 2;
   const cy = viewport.height / 2;
 
@@ -41,6 +43,11 @@ export function StatusBar() {
             <TriangleAlert className="size-3.5" aria-hidden="true" />
             {outside} past the edge of the mat
           </span>
+        )}
+        {hidden > 0 && (
+          <button type="button" onClick={showAll} className="font-medium text-ink-soft underline-offset-2 hover:underline">
+            {hidden} hidden · Show all
+          </button>
         )}
       </div>
 

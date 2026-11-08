@@ -169,6 +169,9 @@ interface EditorState {
   moveHandleWorld: (segIndex: number, which: "in" | "out", wx: number, wy: number) => void;
   restack: (mode: StackMode) => void;
   renameObject: (id: string, name: string) => void;
+  setObjectLocked: (ids: readonly string[], locked: boolean) => void;
+  setObjectHidden: (ids: readonly string[], hidden: boolean) => void;
+  showAllObjects: () => void;
   moveToLayer: (ids: readonly string[], layerId: string) => void;
   setRectRadius: (radius: number) => void;
   setStyle: (ids: readonly string[], patch: Partial<ObjectStyle>) => void;
@@ -602,7 +605,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     removeObjects: (ids) => {
       const drop = new Set(ids);
       if (drop.size === 0) return;
-      get().commitDoc((d) => ({ ...d, objects: d.objects.filter((o) => !drop.has(o.id)) }));
+      // Locked objects are kept even if in the set.
+      get().commitDoc((d) => ({ ...d, objects: d.objects.filter((o) => !drop.has(o.id) || o.locked) }));
     },
 
     duplicateObjects: (ids) => {
@@ -1027,6 +1031,21 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     renameObject: (id, name) => get().mapObjects([id], (o) => ({ ...o, name }), `rename:${id}`),
 
+    setObjectLocked: (ids, locked) => get().mapObjects(ids, (o) => ({ ...o, locked: locked || undefined })),
+
+    setObjectHidden: (ids, hidden) => {
+      get().mapObjects(ids, (o) => ({ ...o, hidden: hidden || undefined }));
+      if (hidden) {
+        const dropped = new Set(ids);
+        set((s) => ({ selection: s.selection.filter((id) => !dropped.has(id)) }));
+      }
+    },
+
+    showAllObjects: () =>
+      get().commitDoc((d) =>
+        d.objects.some((o) => o.hidden) ? { ...d, objects: d.objects.map((o) => (o.hidden ? { ...o, hidden: undefined } : o)) } : d,
+      ),
+
     moveToLayer: (ids, layerId) => {
       const target = get().doc.layers.find((l) => l.id === layerId);
       if (!target) return;
@@ -1228,7 +1247,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     selectAll: () =>
       set((s) => {
         const open = new Set(s.doc.layers.filter((l) => l.visible && !l.locked).map((l) => l.id));
-        return { selection: s.doc.objects.filter((o) => open.has(o.layerId)).map((o) => o.id) };
+        return { selection: s.doc.objects.filter((o) => open.has(o.layerId) && !o.hidden && !o.locked).map((o) => o.id) };
       }),
 
     clearSelection: () => set({ selection: [] }),

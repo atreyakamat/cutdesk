@@ -16,13 +16,16 @@ import {
   Copy,
   FlipHorizontal2,
   FlipVertical2,
+  EyeOff,
   Group,
   Link2,
+  Lock,
   Pipette,
   Plus,
   Trash2,
   Ungroup,
   Unlink2,
+  Unlock,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -251,6 +254,7 @@ function SelectionSection() {
   const canUngroup = objs.some((o) => !!o.groupId);
   const shapeCount = objs.filter((o) => o.geo.kind !== "image").length;
   const hasPathLike = objs.some((o) => o.geo.kind === "path" || o.geo.kind === "text");
+  const allLocked = objs.every((o) => o.locked);
 
   const EyeDropperCtor =
     typeof window !== "undefined"
@@ -461,6 +465,14 @@ function SelectionSection() {
             <IconButton size="sm" icon={ArrowDownToLine} label="Send to back" onClick={() => store().restack("back")} />
             <IconButton size="sm" icon={Group} label="Group" shortcut="Ctrl G" disabled={!canGroup} onClick={() => store().group()} />
             <IconButton size="sm" icon={Ungroup} label="Ungroup" shortcut="Ctrl Shift G" disabled={!canUngroup} onClick={() => store().ungroup()} />
+            <IconButton
+              size="sm"
+              icon={allLocked ? Unlock : Lock}
+              label={allLocked ? "Unlock" : "Lock"}
+              pressed={allLocked}
+              onClick={() => store().setObjectLocked(ids, !allLocked)}
+            />
+            <IconButton size="sm" icon={EyeOff} label="Hide" onClick={() => store().setObjectHidden(ids, true)} />
           </div>
           {objs.length >= 2 && (
             <button

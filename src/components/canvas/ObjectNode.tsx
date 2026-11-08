@@ -40,7 +40,7 @@ export const ObjectNode = memo(function ObjectNode({ obj, layer, draggable, onDr
     scaleX: obj.scaleX,
     scaleY: obj.scaleY,
     opacity: obj.style?.opacity ?? 1,
-    draggable: draggable && !layer.locked,
+    draggable: draggable && !layer.locked && !obj.locked,
     listening: !layer.locked,
     onDragStart,
     onDragMove,

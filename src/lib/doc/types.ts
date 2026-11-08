@@ -72,6 +72,10 @@ export interface DesignObject extends Transform {
   style?: ObjectStyle;
   /** Objects sharing a groupId select and move together. */
   groupId?: string;
+  /** Locked objects can be selected (to unlock) but not moved, resized or deleted. */
+  locked?: boolean;
+  /** Hidden objects are not shown, selected, or cut. */
+  hidden?: boolean;
 }
 
 export interface Layer {
