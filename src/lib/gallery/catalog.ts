@@ -4,7 +4,12 @@
  * cut. Everything here is generated maths — no third-party assets — so it's
  * licence-clean and scales: add a generator and the catalog grows. A big hosted
  * catalog can be layered on later behind the same GalleryShape shape.
+ *
+ * The "Icons" category is a curated open pack (Bootstrap Icons, MIT) baked in by
+ * scripts/gen-icons.mjs — see ./icons.ts.
  */
+
+import { ICONS } from "./icons";
 
 export interface GalleryShape {
   id: string;
@@ -146,6 +151,6 @@ function buildCatalog(): GalleryShape[] {
   return shapes;
 }
 
-export const CATALOG: GalleryShape[] = buildCatalog();
+export const CATALOG: GalleryShape[] = [...buildCatalog(), ...ICONS];
 
 export const CATEGORIES: string[] = Array.from(new Set(CATALOG.map((s) => s.category)));

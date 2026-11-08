@@ -6,8 +6,10 @@ describe("gallery catalog", () => {
     expect(CATALOG.length).toBeGreaterThan(80);
   });
 
-  it("gives every shape a closed path and a positive bounding box", () => {
-    for (const s of CATALOG) {
+  it("gives every generated shape a closed path and a positive bounding box", () => {
+    // The imported "Icons" pack is valid path data in a different format; it has
+    // its own test. These checks are for the procedurally generated shapes.
+    for (const s of CATALOG.filter((s) => s.category !== "Icons")) {
       expect(s.d.startsWith("M ")).toBe(true);
       expect(s.d.trimEnd().endsWith("Z")).toBe(true);
       expect(s.width).toBeGreaterThan(0);
