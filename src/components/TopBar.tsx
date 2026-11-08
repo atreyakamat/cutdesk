@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Download, FilePlus2, FileUp, FolderOpen, Keyboard, LayoutTemplate, Play, Redo2, Save, Undo2 } from "lucide-react";
+import { ChevronDown, Download, FilePlus2, FileUp, FolderOpen, Keyboard, LayoutTemplate, Play, QrCode, Redo2, Save, Undo2 } from "lucide-react";
 import { DropdownMenu as M } from "radix-ui";
 import type { ReactNode } from "react";
 import { exportPdfFile, exportPngFile, exportPrintableFile, exportSvgFile, openProjectFile, openSvgFile, saveProjectFile } from "@/lib/files";
@@ -73,6 +73,7 @@ export function TopBar() {
   const newDoc = useEditor((s) => s.newDoc);
   const openTemplates = useEditor((s) => s.setTemplatesOpen);
   const openHelp = useEditor((s) => s.setHelpOpen);
+  const openGenerator = useEditor((s) => s.setGeneratorOpen);
 
   return (
     <header className="flex h-12 items-center gap-2 border-b border-line bg-panel px-3">
@@ -121,6 +122,9 @@ export function TopBar() {
           </Item>
           <Item icon={<LayoutTemplate className="size-4" />} onSelect={() => openTemplates(true)}>
             Templates & pages…
+          </Item>
+          <Item icon={<QrCode className="size-4" />} onSelect={() => openGenerator(true)}>
+            Generate QR / barcode…
           </Item>
           <Item icon={<FileUp className="size-4" />} onSelect={() => void openSvgFile()}>
             Import SVG…

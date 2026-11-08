@@ -434,6 +434,23 @@ describe("copy / cut / paste", () => {
   });
 });
 
+describe("code generators", () => {
+  it("adds a QR code path to the mat", () => {
+    state().addQrCode("https://stixnvibes.com", 40);
+    const qr = state().doc.objects.find((o) => o.name === "QR code");
+    expect(qr).toBeTruthy();
+    expect((qr!.geo as { d: string }).d.length).toBeGreaterThan(50);
+  });
+
+  it("adds a Code 39 barcode named by its text, and refuses all-unsupported input", () => {
+    state().addBarcode("SKU123", 20);
+    expect(state().doc.objects.some((o) => o.name === "Barcode SKU123")).toBe(true);
+    const before = state().doc.objects.length;
+    state().addBarcode("!!!", 20); // nothing encodable
+    expect(state().doc.objects.length).toBe(before);
+  });
+});
+
 describe("SVG import", () => {
   it("imports an SVG's shapes as path objects on the mat", () => {
     state().importSvgText(

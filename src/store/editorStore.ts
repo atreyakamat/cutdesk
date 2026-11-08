@@ -19,6 +19,8 @@ import { deleteNode, flattenSegs, insertNode, moveAnchor, moveHandle, nearestOnP
 import { arcWarpPath } from "@/lib/doc/arcWarp";
 import { nestBoxes } from "@/lib/doc/nest";
 import { parseSvg } from "@/lib/svg/importSvg";
+import { qrPath } from "@/lib/doc/qr";
+import { code39Path } from "@/lib/doc/barcode";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
@@ -101,6 +103,7 @@ interface EditorState {
   importFile: File | null;
   templatesOpen: boolean;
   helpOpen: boolean;
+  generatorOpen: boolean;
   saveStatus: SaveStatus;
   /** Bumped to ask the inspector to focus the text field. */
   textFocusTick: number;
@@ -142,6 +145,8 @@ interface EditorState {
   addObjects: (items: NewObject[]) => string[];
   addObject: (item: NewObject) => string;
   importSvgText: (text: string, name?: string) => void;
+  addQrCode: (text: string, sizeMm?: number) => void;
+  addBarcode: (text: string, heightMm?: number) => void;
   removeObjects: (ids: readonly string[]) => void;
   duplicateObjects: (ids: readonly string[]) => void;
   copy: () => void;
@@ -208,6 +213,7 @@ interface EditorState {
   closeImport: () => void;
   setTemplatesOpen: (open: boolean) => void;
   setHelpOpen: (open: boolean) => void;
+  setGeneratorOpen: (open: boolean) => void;
   setSaveStatus: (status: SaveStatus) => void;
   setPanelsOpen: (open: boolean) => void;
   setShowRulers: (show: boolean) => void;
@@ -294,6 +300,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     importFile: null,
     templatesOpen: false,
     helpOpen: false,
+    generatorOpen: false,
     saveStatus: "idle",
     textFocusTick: 0,
     panelsOpen: false,
@@ -583,6 +590,26 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
 
     addObject: (item) => get().addObjects([item])[0],
+
+    addQrCode: (text, sizeMm = 40) => {
+      const { d, width, height } = qrPath(text, { sizeMm });
+      if (!d) {
+        get().notify("error", "Couldn't make a QR code from that.");
+        return;
+      }
+      const { mat } = get().doc;
+      get().addObject({ geo: { kind: "path", d }, name: "QR code", init: { x: Math.max(0, (mat.width - width) / 2), y: Math.max(0, (mat.height - height) / 2) } });
+    },
+
+    addBarcode: (text, heightMm = 20) => {
+      const { d, width, height, text: encoded } = code39Path(text, { heightMm });
+      if (!d || !encoded) {
+        get().notify("error", "Nothing to encode — Code 39 takes A–Z, 0–9 and - . $ / + %.");
+        return;
+      }
+      const { mat } = get().doc;
+      get().addObject({ geo: { kind: "path", d }, name: `Barcode ${encoded}`, init: { x: Math.max(0, (mat.width - width) / 2), y: Math.max(0, (mat.height - height) / 2) } });
+    },
 
     importSvgText: (text, name = "SVG") => {
       const { mat } = get().doc;
@@ -1315,6 +1342,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     setTemplatesOpen: (templatesOpen) => set({ templatesOpen }),
 
     setHelpOpen: (helpOpen) => set({ helpOpen }),
+
+    setGeneratorOpen: (generatorOpen) => set({ generatorOpen }),
 
     setSaveStatus: (saveStatus) => set((s) => (s.saveStatus === saveStatus ? s : { saveStatus })),
 

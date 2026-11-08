@@ -5,6 +5,7 @@ import { ImportDialog } from "./ImportDialog";
 import { Inspector } from "./Inspector";
 import { LayersPanel } from "./LayersPanel";
 import { CanvasContextMenu } from "./CanvasContextMenu";
+import { GeneratorDialog } from "./GeneratorDialog";
 import { NoticeToast } from "./NoticeToast";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { PageBar } from "./PageBar";
@@ -54,6 +55,7 @@ export default function Editor() {
       <ImportDialog />
       <TemplatesDialog />
       <CanvasContextMenu />
+      <GeneratorDialog />
       <ShortcutsDialog />
       <NoticeToast />
     </TooltipProvider>
