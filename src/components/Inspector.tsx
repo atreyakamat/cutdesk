@@ -540,6 +540,14 @@ function SelectionSection() {
             </div>
           )}
 
+          <button
+            type="button"
+            onClick={() => store().makeStickerSheet(outlineMm)}
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-control bg-ink text-sm font-medium text-on-ink hover:opacity-90"
+          >
+            Make sticker sheet
+          </button>
+
           <Row label="Layer">
             <Select
               aria-label="Move to layer"

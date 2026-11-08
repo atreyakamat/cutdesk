@@ -164,6 +164,7 @@ interface EditorState {
   align: (mode: AlignMode) => void;
   distribute: (axis: "h" | "v") => void;
   autoNest: () => void;
+  makeStickerSheet: (borderMm?: number) => void;
   outlineSelection: (deltaMm: number) => void;
   combineSelection: (op: BooleanOp) => void;
   contourSelection: () => void;
@@ -867,18 +868,91 @@ export const useEditor = create<EditorState>()((set, get) => {
         get().notify("info", "Select two or more objects to arrange them.");
         return;
       }
-      const items = objs.map((o) => {
-        const b = worldAABB(o);
-        return { id: o.id, w: b.maxX - b.minX, h: b.maxY - b.minY };
-      });
+      // Group selected objects into units (grouped objects move together).
+      const units = new Map<string, { members: DesignObject[]; box: ReturnType<typeof unionBBox> }>();
+      for (const o of objs) {
+        const key = o.groupId ?? o.id;
+        const u = units.get(key) ?? { members: [], box: null };
+        u.members.push(o);
+        units.set(key, u);
+      }
+      for (const u of units.values()) u.box = unionBBox(u.members.map(worldAABB));
+      if (units.size < 2) {
+        get().notify("info", "Select two or more separate objects (or groups) to arrange.");
+        return;
+      }
       const { mat } = get().doc;
+      const items = [...units].flatMap(([key, u]) => (u.box ? [{ id: key, w: u.box.maxX - u.box.minX, h: u.box.maxY - u.box.minY }] : []));
       const pos = nestBoxes(items, { width: mat.width, gap: 3, margin: 3 });
       get().mapObjects(get().selection, (o) => {
-        const t = pos.get(o.id);
-        if (!t) return o; // skipped (e.g. non-finite bounds) — leave it where it is
-        const b = worldAABB(o);
-        return translateObject(o, t.x - b.minX, t.y - b.minY);
+        const key = o.groupId ?? o.id;
+        const u = units.get(key);
+        const t = pos.get(key);
+        if (!u || !u.box || !t) return o; // non-finite units are skipped
+        return translateObject(o, t.x - u.box.minX, t.y - u.box.minY);
       });
+    },
+
+    makeStickerSheet: (borderMm = 3) => {
+      const targets = selectedObjects();
+      if (targets.length === 0) {
+        get().notify("info", "Select the designs to turn into stickers.");
+        return;
+      }
+      const selAll: string[] = [];
+      let madeAny = false;
+      get().commitDoc((d) => {
+        const objects = [...d.objects];
+        const cutLayerId = d.layers.find((l) => l.operation === "cut")?.id;
+        for (const o of targets) {
+          const rings = worldPolylines(o).map((pl) => pl.points);
+          let geo: Geometry;
+          let bx: number;
+          let by: number;
+          if (rings.length) {
+            const merged = booleanRings(rings, [], "union");
+            const out = offsetRings(merged.length ? merged : rings, borderMm);
+            const bb = ringsBBox(out);
+            if (out.length === 0 || !bb) continue;
+            geo = { kind: "path", d: ringsToPathData(out.map((r) => r.map((p) => ({ x: p.x - bb.minX, y: p.y - bb.minY })))) };
+            bx = bb.minX;
+            by = bb.minY;
+          } else {
+            // No outline (e.g. an image): a rounded-rect border around the bounds.
+            const b = worldAABB(o);
+            const w = b.maxX - b.minX + borderMm * 2;
+            const h = b.maxY - b.minY + borderMm * 2;
+            geo = { kind: "rect", width: w, height: h, cornerRadius: Math.min(w, h) * 0.12 };
+            bx = b.minX - borderMm;
+            by = b.minY - borderMm;
+          }
+          const gid = o.groupId ?? newId();
+          const borderId = newId();
+          const idx = objects.findIndex((x) => x.id === o.id);
+          objects.splice(Math.max(0, idx), 0, {
+            id: borderId,
+            name: `${o.name} border`,
+            layerId: cutLayerId ?? o.layerId,
+            ...DEFAULT_TRANSFORM,
+            x: bx,
+            y: by,
+            geo,
+            groupId: gid,
+          });
+          const oi = objects.findIndex((x) => x.id === o.id);
+          objects[oi] = { ...objects[oi], groupId: gid };
+          selAll.push(borderId, o.id);
+          madeAny = true;
+        }
+        return madeAny ? { ...d, objects } : d;
+      });
+      if (!madeAny) {
+        get().notify("error", "Couldn't build sticker borders for that selection.");
+        return;
+      }
+      set({ selection: selAll });
+      get().autoNest();
+      get().notify("info", `Made ${targets.length} sticker${targets.length === 1 ? "" : "s"} with borders and arranged them.`);
     },
 
     outlineSelection: (deltaMm) => {

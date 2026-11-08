@@ -492,6 +492,31 @@ describe("auto-nest", () => {
     expect(worldAABB(state().doc.objects.find((o) => o.id === id)!).minX).toBeCloseTo(50, 1);
   });
 
+  it("is group-aware: a grouped pair moves together as one unit", () => {
+    const [a, b] = state().addObjects([{ geo: rect(10, 10), init: { x: 0, y: 0 } }, { geo: rect(10, 10), init: { x: 12, y: 0 } }]);
+    state().select([a, b]);
+    state().group();
+    const c = state().addObject({ geo: rect(10, 10), init: { x: 200, y: 200 } });
+    state().select([a, b, c]);
+    const box = (id: string) => worldAABB(state().doc.objects.find((o) => o.id === id)!);
+    const relBefore = box(b).minX - box(a).minX;
+    state().autoNest();
+    expect(box(b).minX - box(a).minX).toBeCloseTo(relBefore, 6); // stayed together
+  });
+
+  it("makes a sticker sheet: each design gains a grouped border, all arranged", () => {
+    const ids = state().addObjects([{ geo: rect(20, 20), init: { x: 100, y: 100 } }, { geo: rect(20, 20), init: { x: 200, y: 200 } }]);
+    state().select(ids);
+    state().makeStickerSheet(3);
+    const objs = state().doc.objects;
+    expect(objs.length).toBe(4); // 2 designs + 2 borders
+    for (const id of ids) {
+      const o = objs.find((x) => x.id === id)!;
+      expect(o.groupId).toBeTruthy();
+      expect(objs.filter((x) => x.groupId === o.groupId).length).toBe(2); // design + its border
+    }
+  });
+
   it("R2: leaves an object with non-finite bounds untouched (no NaN)", () => {
     const base = createDefaultDoc();
     const layerId = base.layers[0].id;
