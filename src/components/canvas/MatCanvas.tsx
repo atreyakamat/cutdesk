@@ -6,7 +6,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Circle, Ellipse, Layer, Path, Rect, Stage, Transformer } from "react-konva";
 import { buildCutPlan } from "@/lib/doc/cutPlan";
 import { bboxesIntersect, matrixOf, unionBBox, worldAABB } from "@/lib/doc/geometry";
-import { computeSnap, distributionSnap, snapBoxes, snapTargets, type SnapLines, type SpacingGuide } from "@/lib/doc/snapping";
+import { computeSnap, distributionSnap, gridTargets, snapBoxes, snapTargets, type SnapLines, type SpacingGuide } from "@/lib/doc/snapping";
 import { clamp, formatLength } from "@/lib/doc/units";
 import { normalizeSegs, parsePath, pathAnchors, serializePath, transformPoint } from "@/lib/doc/pathData";
 import { canFinishPen, dropDuplicateTail, penSegs, type PenNode } from "@/lib/doc/pen";
@@ -456,6 +456,11 @@ export function MatCanvas() {
     const lines = snapTargets(st.doc, wanted);
     lines.xs.push(...st.guidesX); // snap to user guides too
     lines.ys.push(...st.guidesY);
+    if (st.snapToGrid) {
+      const g = gridTargets(st.doc.mat.width, st.doc.mat.height, st.gridMm);
+      lines.xs.push(...g.xs);
+      lines.ys.push(...g.ys);
+    }
     dragState.current = {
       leader: lead.id(),
       origin: { x: lead.x(), y: lead.y() },
@@ -524,6 +529,11 @@ export function MatCanvas() {
     const lines = snapTargets(st.doc, new Set(st.selection));
     lines.xs.push(...st.guidesX);
     lines.ys.push(...st.guidesY);
+    if (st.snapToGrid) {
+      const g = gridTargets(st.doc.mat.width, st.doc.mat.height, st.gridMm);
+      lines.xs.push(...g.xs);
+      lines.ys.push(...g.ys);
+    }
     resizeLines.current = lines;
   };
 

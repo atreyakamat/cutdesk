@@ -1,6 +1,6 @@
 "use client";
 
-import { Maximize, Minus, Plus, Ruler, TriangleAlert } from "lucide-react";
+import { Grid3x3, Maximize, Minus, Plus, Ruler, TriangleAlert } from "lucide-react";
 import { useMemo } from "react";
 import { objectsOutsideMat } from "@/lib/doc/cutPlan";
 import { formatValue } from "@/lib/doc/units";
@@ -19,6 +19,8 @@ export function StatusBar() {
   const fitView = useEditor((s) => s.fitView);
   const showRulers = useEditor((s) => s.showRulers);
   const setShowRulers = useEditor((s) => s.setShowRulers);
+  const snapToGrid = useEditor((s) => s.snapToGrid);
+  const setSnapToGrid = useEditor((s) => s.setSnapToGrid);
 
   const outside = useMemo(() => objectsOutsideMat(doc).length, [doc]);
   const cx = viewport.width / 2;
@@ -44,6 +46,7 @@ export function StatusBar() {
 
       <div className="pointer-events-auto flex items-center rounded-pop bg-panel/90 p-0.5 shadow-pop backdrop-blur">
         <IconButton icon={Ruler} label={showRulers ? "Hide rulers" : "Show rulers"} size="sm" tipSide="top" pressed={showRulers} onClick={() => setShowRulers(!showRulers)} />
+        <IconButton icon={Grid3x3} label={snapToGrid ? "Snap to grid: on" : "Snap to grid: off"} size="sm" tipSide="top" pressed={snapToGrid} onClick={() => setSnapToGrid(!snapToGrid)} />
         <IconButton icon={Minus} label="Zoom out" shortcut="-" size="sm" tipSide="top" onClick={() => zoomAt(0.8, cx, cy)} />
         <span className="w-12 text-center text-xs tabular-nums text-ink-soft" aria-label="Zoom level">
           {Math.round((scale / PX_PER_MM_AT_100) * 100)}%

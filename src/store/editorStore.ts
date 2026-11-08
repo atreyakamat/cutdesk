@@ -107,6 +107,8 @@ interface EditorState {
   panelsOpen: boolean;
   /** Rulers + guides (guides are in mm; session-only, not saved to the file). */
   showRulers: boolean;
+  snapToGrid: boolean;
+  gridMm: number;
   guidesX: number[];
   guidesY: number[];
   /** Canvas right-click menu anchor, in client (screen) pixels. */
@@ -206,6 +208,7 @@ interface EditorState {
   setSaveStatus: (status: SaveStatus) => void;
   setPanelsOpen: (open: boolean) => void;
   setShowRulers: (show: boolean) => void;
+  setSnapToGrid: (on: boolean) => void;
   addGuide: (axis: "x" | "y", mm: number) => void;
   clearGuides: () => void;
   openContextMenu: (x: number, y: number) => void;
@@ -292,6 +295,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     textFocusTick: 0,
     panelsOpen: false,
     showRulers: false,
+    snapToGrid: false,
+    gridMm: 5,
     guidesX: [],
     guidesY: [],
     contextMenu: null,
@@ -1297,6 +1302,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     setPanelsOpen: (panelsOpen) => set({ panelsOpen }),
 
     setShowRulers: (showRulers) => set({ showRulers }),
+
+    setSnapToGrid: (snapToGrid) => set({ snapToGrid }),
 
     addGuide: (axis, mm) => {
       if (!Number.isFinite(mm)) return; // ignore junk positions

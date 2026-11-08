@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSnap, distributionSnap, selectionBox, snapBoxes, snapTargets } from "./snapping";
+import { computeSnap, distributionSnap, gridTargets, selectionBox, snapBoxes, snapTargets } from "./snapping";
 import type { BBox, Doc } from "./types";
 
 function doc(objects: Doc["objects"] = []): Doc {
@@ -39,6 +39,19 @@ describe("snapTargets", () => {
     expect(snapTargets(d, []).xs).toContain(25);
     d.layers[0].visible = false;
     expect(snapTargets(d, []).xs).not.toContain(25);
+  });
+});
+
+describe("gridTargets", () => {
+  it("produces grid lines at the step across the mat", () => {
+    const g = gridTargets(20, 10, 5);
+    expect(g.xs).toEqual([0, 5, 10, 15, 20]);
+    expect(g.ys).toEqual([0, 5, 10]);
+  });
+  it("is bounded for a tiny step and safe for a non-positive step", () => {
+    expect(gridTargets(1000, 1000, 0.001).xs.length).toBeLessThanOrEqual(600);
+    expect(gridTargets(100, 100, 0)).toEqual({ xs: [], ys: [] });
+    expect(gridTargets(100, 100, Number.NaN)).toEqual({ xs: [], ys: [] });
   });
 });
 

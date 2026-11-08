@@ -49,6 +49,16 @@ function linesY(b: BBox): number[] {
  * dragged. Locked and hidden layers still contribute lines — you can line up
  * against something you can't move.
  */
+/** Grid snap lines across the mat at `step` mm, bounded so a tiny step can't explode. */
+export function gridTargets(width: number, height: number, step: number, max = 600): SnapLines {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  if (!(step > 0) || !Number.isFinite(step)) return { xs, ys };
+  for (let x = 0; x <= width + 1e-6 && xs.length < max; x += step) xs.push(x);
+  for (let y = 0; y <= height + 1e-6 && ys.length < max; y += step) ys.push(y);
+  return { xs, ys };
+}
+
 export function snapTargets(doc: Doc, excludeIds: Iterable<string>): SnapLines {
   const skip = new Set(excludeIds);
   const visible = new Set(doc.layers.filter((l) => l.visible).map((l) => l.id));
