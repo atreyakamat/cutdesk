@@ -5,10 +5,13 @@ import { QrCode, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { code39Path } from "@/lib/doc/barcode";
 import { qrPath } from "@/lib/doc/qr";
+import type { FrameKind } from "@/lib/doc/monogram";
+import type { FontId } from "@/lib/doc/types";
+import { FONTS } from "@/lib/text/fonts";
 import { useEditor } from "@/store/editorStore";
-import { Button } from "./ui/Controls";
+import { Button, Select } from "./ui/Controls";
 
-type Tab = "qr" | "barcode";
+type Tab = "qr" | "barcode" | "monogram";
 
 /** Generate a QR code or a Code 39 barcode as a cut-ready path. */
 export function GeneratorDialog() {
@@ -17,8 +20,11 @@ export function GeneratorDialog() {
   const [tab, setTab] = useState<Tab>("qr");
   const [text, setText] = useState("https://stixnvibes.com");
   const [size, setSize] = useState(40);
+  const [font, setFont] = useState<FontId>("lilita");
+  const [frame, setFrame] = useState<FrameKind>("none");
 
   const preview = useMemo(() => {
+    if (tab === "monogram") return null;
     try {
       return tab === "qr" ? qrPath(text, { sizeMm: size }) : code39Path(text, { heightMm: size });
     } catch {
@@ -26,9 +32,12 @@ export function GeneratorDialog() {
     }
   }, [tab, text, size]);
 
+  const canAdd = tab === "monogram" ? text.trim().length > 0 : !!preview && !!preview.d;
+
   const add = () => {
     if (tab === "qr") useEditor.getState().addQrCode(text, size);
-    else useEditor.getState().addBarcode(text, size);
+    else if (tab === "barcode") useEditor.getState().addBarcode(text, size);
+    else void useEditor.getState().addMonogram(text, font, frame);
     setOpen(false);
   };
 
@@ -56,6 +65,7 @@ export function GeneratorDialog() {
             <div className="flex rounded-control bg-sunken p-0.5">
               {chip("qr", "QR code")}
               {chip("barcode", "Barcode")}
+              {chip("monogram", "Monogram")}
             </div>
             <Dialog.Close className="ml-auto grid size-7 place-items-center rounded-control text-ink-soft hover:bg-sunken" aria-label="Close">
               <X className="size-4" aria-hidden="true" />
@@ -64,30 +74,52 @@ export function GeneratorDialog() {
 
           <div className="flex flex-col gap-3 p-4">
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-ink-soft">{tab === "qr" ? "Text or URL" : "Text (A–Z, 0–9, - . $ / + %)"}</span>
+              <span className="text-ink-soft">
+                {tab === "qr" ? "Text or URL" : tab === "barcode" ? "Text (A–Z, 0–9, - . $ / + %)" : "Name or initials"}
+              </span>
               <input
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                aria-label="Code content"
+                aria-label="Content"
                 className="h-9 rounded-control border border-line bg-raised px-2.5 text-sm"
               />
             </label>
-            <label className="flex items-center gap-2 text-sm text-ink-soft">
-              <span className="w-28">{tab === "qr" ? "Size (mm)" : "Height (mm)"}</span>
-              <input
-                type="range"
-                min={tab === "qr" ? 15 : 8}
-                max={tab === "qr" ? 150 : 60}
-                value={size}
-                onChange={(e) => setSize(Number(e.target.value))}
-                aria-label="Size"
-                className="flex-1"
-              />
-              <span className="w-10 text-right tabular-nums">{size}</span>
-            </label>
+
+            {tab !== "monogram" ? (
+              <label className="flex items-center gap-2 text-sm text-ink-soft">
+                <span className="w-28">{tab === "qr" ? "Size (mm)" : "Height (mm)"}</span>
+                <input
+                  type="range"
+                  min={tab === "qr" ? 15 : 8}
+                  max={tab === "qr" ? 150 : 60}
+                  value={size}
+                  onChange={(e) => setSize(Number(e.target.value))}
+                  aria-label="Size"
+                  className="flex-1"
+                />
+                <span className="w-10 text-right tabular-nums">{size}</span>
+              </label>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <Select aria-label="Font" value={font} onChange={(e) => setFont(e.target.value as FontId)}>
+                  {FONTS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </Select>
+                <Select aria-label="Frame" value={frame} onChange={(e) => setFrame(e.target.value as FrameKind)}>
+                  <option value="none">No frame</option>
+                  <option value="circle">Circle frame</option>
+                  <option value="diamond">Diamond frame</option>
+                </Select>
+              </div>
+            )}
 
             <div className="grid h-40 place-items-center rounded-control border border-line bg-bench p-3">
-              {preview && preview.d ? (
+              {tab === "monogram" ? (
+                <span className="truncate text-4xl font-semibold text-ink">{text.trim() || "AB"}</span>
+              ) : preview && preview.d ? (
                 <svg viewBox={`0 0 ${preview.width} ${preview.height}`} className="max-h-full max-w-full" aria-label="Preview">
                   <path d={preview.d} className="fill-ink" />
                 </svg>
@@ -101,7 +133,7 @@ export function GeneratorDialog() {
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" disabled={!preview || !preview.d} onClick={add}>
+            <Button variant="primary" disabled={!canAdd} onClick={add}>
               Add to mat
             </Button>
           </div>

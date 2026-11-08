@@ -21,6 +21,7 @@ import { nestBoxes } from "@/lib/doc/nest";
 import { parseSvg } from "@/lib/svg/importSvg";
 import { qrPath } from "@/lib/doc/qr";
 import { code39Path } from "@/lib/doc/barcode";
+import { monogramFrame, type FrameKind } from "@/lib/doc/monogram";
 import { newId } from "@/lib/doc/ids";
 import type { Project } from "@/lib/doc/project";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM, MAT_GUTTER } from "@/lib/doc/mats";
@@ -147,6 +148,7 @@ interface EditorState {
   importSvgText: (text: string, name?: string) => void;
   addQrCode: (text: string, sizeMm?: number) => void;
   addBarcode: (text: string, heightMm?: number) => void;
+  addMonogram: (text: string, fontId: FontId, frame: FrameKind) => Promise<void>;
   removeObjects: (ids: readonly string[]) => void;
   duplicateObjects: (ids: readonly string[]) => void;
   copy: () => void;
@@ -730,6 +732,31 @@ export const useEditor = create<EditorState>()((set, get) => {
         return { ...doc, layers, objects };
       });
       if (pastedIds.length) set({ selection: pastedIds });
+    },
+
+    addMonogram: async (text, fontId, frame) => {
+      try {
+        const label = text.trim() || "AB";
+        const font = await loadFont(fontId);
+        const size = 48;
+        const outline = textOutline(font, label, size, 0);
+        const { mat } = get().doc;
+        const pad = Math.max(outline.width, outline.height) * 0.3 + 8;
+        const tx = Math.max(0, (mat.width - outline.width) / 2);
+        const ty = Math.max(0, (mat.height - outline.height) / 2);
+        const items: NewObject[] = [];
+        const fr = monogramFrame(frame, outline.width, outline.height, pad);
+        if (fr) items.push({ geo: fr.geo, name: "Frame", init: { x: tx + fr.dx, y: ty + fr.dy } });
+        items.push({ geo: { kind: "text", text: label, fontId, size, letterSpacing: 0, ...outline }, name: label, init: { x: tx, y: ty } });
+        const ids = get().addObjects(items);
+        if (ids.length > 1) {
+          get().select(ids);
+          get().group();
+        }
+        get().notify("info", `Added monogram “${label}”.`);
+      } catch (err) {
+        get().notify("error", err instanceof Error ? err.message : "Couldn't make the monogram.");
+      }
     },
 
     setTransforms: (updates) => {
