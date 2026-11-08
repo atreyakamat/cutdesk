@@ -7,7 +7,7 @@ import { Circle, Ellipse, Layer, Path, Rect, Stage, Transformer } from "react-ko
 import { buildCutPlan } from "@/lib/doc/cutPlan";
 import { bboxesIntersect, matrixOf, unionBBox, worldAABB } from "@/lib/doc/geometry";
 import { computeSnap, distributionSnap, gridTargets, snapBoxes, snapTargets, type SnapLines, type SpacingGuide } from "@/lib/doc/snapping";
-import { clamp, formatLength } from "@/lib/doc/units";
+import { clamp, formatLength, formatValue } from "@/lib/doc/units";
 import { normalizeSegs, parsePath, pathAnchors, serializePath, transformPoint } from "@/lib/doc/pathData";
 import { canFinishPen, dropDuplicateTail, penSegs, type PenNode } from "@/lib/doc/pen";
 import type { BBox, Point } from "@/lib/doc/types";
@@ -93,6 +93,11 @@ export function MatCanvas() {
     return pathAnchors(parsePath(nodeEditObj.geo.d)).map((a) => ({ seg: a.seg, ...transformPoint(m, a.x, a.y) }));
   }, [nodeEditObj]);
   // Bezier handles for the selected node (its in/out control points), in world mm.
+  const selBox = useMemo(() => {
+    const ids = new Set(selection);
+    return unionBBox(doc.objects.filter((o) => ids.has(o.id)).map(worldAABB));
+  }, [doc.objects, selection]);
+
   const nodeHandles = useMemo(() => {
     if (!nodeEditObj || nodeEditObj.geo.kind !== "path" || activeNode == null) return [];
     const m = matrixOf(nodeEditObj);
@@ -112,6 +117,7 @@ export function MatCanvas() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
   const [spacing, setSpacing] = useState<SpacingGuide[]>([]);
+  const [dimBox, setDimBox] = useState<BBox | null>(null); // live bounds during drag/resize
   const [pen, setPen] = useState<{ nodes: PenNode[]; hover: Point | null }>({ nodes: [], hover: null });
   const [panning, setPanning] = useState(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
@@ -511,6 +517,7 @@ export function MatCanvas() {
     for (const [id, item] of d.nodes) {
       if (id !== d.leader) item.node.position({ x: item.x + dx, y: item.y + dy });
     }
+    setDimBox({ minX: d.startBox.minX + dx, minY: d.startBox.minY + dy, maxX: d.startBox.maxX + dx, maxY: d.startBox.maxY + dy });
     setGuides((prev) => (prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy }));
     setSpacing((prev) => (prev.length === 0 && spaces.length === 0 ? prev : spaces));
   }, []);
@@ -520,6 +527,7 @@ export function MatCanvas() {
     dragState.current = null;
     setGuides((prev) => (prev.x === null && prev.y === null ? prev : { x: null, y: null }));
     setSpacing((prev) => (prev.length === 0 ? prev : []));
+    setDimBox(null);
     if (!d || e.target.id() !== d.leader) return;
     const updates = [...d.nodes].map(([id, item]) => ({ id, ...readTransform(item.node) }));
     useEditor.getState().setTransforms(updates);
@@ -538,8 +546,17 @@ export function MatCanvas() {
     resizeLines.current = lines;
   };
 
+  const onTransform = () => {
+    const tr = trRef.current;
+    const stage = stageRef.current;
+    if (!tr || !stage) return;
+    const r = tr.getClientRect({ relativeTo: stage });
+    setDimBox({ minX: r.x, minY: r.y, maxX: r.x + r.width, maxY: r.y + r.height });
+  };
+
   const onTransformEnd = () => {
     resizeLines.current = null;
+    setDimBox(null);
     setGuides((prev) => (prev.x === null && prev.y === null ? prev : { x: null, y: null }));
     const tr = trRef.current;
     if (!tr) return;
@@ -871,6 +888,7 @@ export function MatCanvas() {
               ignoreStroke
               boundBoxFunc={snapResizeBox}
               onTransformStart={onTransformStart}
+              onTransform={onTransform}
               onTransformEnd={onTransformEnd}
             />
           </Layer>
@@ -879,6 +897,21 @@ export function MatCanvas() {
           )}
         </Stage>
       )}
+
+      {(() => {
+        const box = dimBox ?? selBox;
+        if (!box || selection.length === 0 || tool !== "select" || preview || nodeEditId || viewport.width === 0) return null;
+        const left = view.tx + ((box.minX + box.maxX) / 2) * view.scale;
+        const top = view.ty + box.maxY * view.scale;
+        return (
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 translate-y-2 whitespace-nowrap rounded bg-ink px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-on-ink shadow-pop"
+            style={{ left, top }}
+          >
+            {formatValue(box.maxX - box.minX, doc.unit)} × {formatValue(box.maxY - box.minY, doc.unit)} {doc.unit}
+          </div>
+        );
+      })()}
 
       {preview && planStats && (
         <div
