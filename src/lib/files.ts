@@ -1,7 +1,7 @@
 "use client";
 
 import { exportFileName, exportPrintable, exportSvg, slugify, type ExportKind } from "@/lib/doc/svg";
-import { exportVisualSvg, rasterSize } from "@/lib/doc/raster";
+import { buildPreviewHtml, exportVisualSvg, rasterSize } from "@/lib/doc/raster";
 import { jpegToPdf, mmToPt } from "@/lib/doc/pdf";
 import { PROJECT_EXTENSION, ProjectError, parseProject, serializeProject } from "@/lib/doc/project";
 import { useEditor } from "@/store/editorStore";
@@ -119,6 +119,17 @@ export async function exportPdfFile(): Promise<void> {
   } catch (err) {
     st.notify("error", err instanceof Error ? err.message : "Couldn't export a PDF.");
   }
+}
+
+export function exportPreviewFile(): void {
+  const { doc, notify } = useEditor.getState();
+  const svg = exportVisualSvg(doc, { background: "#ffffff" });
+  if (!svg.includes("<path") && !svg.includes("<image")) {
+    notify("info", "Nothing to preview yet.");
+    return;
+  }
+  downloadFile(`${slugify(doc.name)}-preview.html`, buildPreviewHtml(doc.name, svg), "text/html");
+  notify("info", "Exported a shareable preview — open it or send the file to anyone.");
 }
 
 export function saveProjectFile(): void {

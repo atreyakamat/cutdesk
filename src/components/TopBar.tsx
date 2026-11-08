@@ -3,7 +3,7 @@
 import { ChevronDown, Download, FilePlus2, FileUp, FolderOpen, Keyboard, LayoutTemplate, Play, QrCode, Redo2, Save, Undo2 } from "lucide-react";
 import { DropdownMenu as M } from "radix-ui";
 import type { ReactNode } from "react";
-import { exportPdfFile, exportPngFile, exportPrintableFile, exportSvgFile, openProjectFile, openSvgFile, saveProjectFile } from "@/lib/files";
+import { exportPdfFile, exportPngFile, exportPreviewFile, exportPrintableFile, exportSvgFile, openProjectFile, openSvgFile, saveProjectFile } from "@/lib/files";
 import type { ExportKind } from "@/lib/doc/svg";
 import { useEditor } from "@/store/editorStore";
 import { Logo } from "./Logo";
@@ -161,6 +161,9 @@ export function TopBar() {
           </Item>
           <Item hint="Document" onSelect={() => void exportPdfFile()}>
             PDF document
+          </Item>
+          <Item hint="Share" onSelect={exportPreviewFile}>
+            Shareable preview (HTML)
           </Item>
         </MenuContent>
       </M.Root>

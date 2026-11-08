@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { jpegToPdf, mmToPt } from "./pdf";
-import { exportVisualSvg, rasterSize } from "./raster";
+import { buildPreviewHtml, exportVisualSvg, rasterSize } from "./raster";
 import type { Doc } from "./types";
 
 function doc(): Doc {
@@ -43,6 +43,16 @@ describe("exportVisualSvg", () => {
   it("omits a background by default and draws one when asked", () => {
     expect(exportVisualSvg(doc())).not.toContain("<rect");
     expect(exportVisualSvg(doc(), { background: "#ffffff" })).toContain('fill="#ffffff"');
+  });
+});
+
+describe("buildPreviewHtml", () => {
+  it("wraps the SVG in a standalone HTML page with the escaped name", () => {
+    const html = buildPreviewHtml("Me & <You>", "<svg><rect/></svg>");
+    expect(html.startsWith("<!doctype html>")).toBe(true);
+    expect(html).toContain("<svg><rect/></svg>");
+    expect(html).toContain("Me &amp; &lt;You&gt;"); // name escaped
+    expect(html).not.toContain("Me & <You>"); // raw name not present
   });
 });
 

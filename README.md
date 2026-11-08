@@ -14,6 +14,18 @@ Built with Next.js 16 · React 19 · TypeScript · Konva · Zustand.
 
 CutDesk is a personal design-and-cut app in the spirit of Cricut Design Space — a vector editor with real cut planning — reimagined to run anywhere and to double as a lightweight design tool. It is **not** a clone of, nor compatible with, any commercial product; it talks to open-firmware cutters and to printable/exportable formats.
 
+<div align="center">
+
+![The editor — light](docs/images/editor-light.png)
+
+<em>A sticker design on the mat: boolean-welded shape, a kiss-cut outline, and curved text — with rulers, layers, multi-page, and the cut-job summary.</em>
+
+![The editor — dark](docs/images/editor-dark.png) &nbsp; ![Open icon gallery](docs/images/gallery-icons.png)
+
+<em>Full dark mode · the open icon gallery.</em>
+
+</div>
+
 > All geometry is stored in **millimetres**. The document model in `src/lib/doc` has no UI dependencies and is covered by unit tests.
 
 ## Quick start
