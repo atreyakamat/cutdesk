@@ -64,6 +64,13 @@ describe("parseSvg", () => {
     expect(r.paths.length).toBeLessThanOrEqual(5000);
   });
 
+  it("R2b: a malformed path d doesn't crash the whole import", () => {
+    expect(() => parseSvg(`<svg viewBox="0 0 9 9"><path d="M NaN garbage 0"/></svg>`)).not.toThrow();
+    // A bad element is skipped; valid ones alongside it still import.
+    const r = parseSvg(`<svg viewBox="0 0 100 100"><path d="M bad data"/><rect x="0" y="0" width="10" height="10"/></svg>`);
+    expect(r.paths).toHaveLength(1);
+  });
+
   it("R3: a malformed transform doesn't throw; the element still imports", () => {
     expect(() => parseSvg(`<svg viewBox="0 0 10 10"><rect x="0" y="0" width="5" height="5" transform="matrix(1,2,3)"/></svg>`)).not.toThrow();
     const r = parseSvg(`<svg viewBox="0 0 10 10"><rect x="0" y="0" width="5" height="5" transform="translate(abc)"/></svg>`);

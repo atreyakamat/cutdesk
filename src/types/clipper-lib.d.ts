@@ -16,6 +16,7 @@ declare module "clipper-lib" {
   export class Clipper {
     AddPaths(paths: Paths, polyType: number, closed: boolean): boolean;
     Execute(clipType: number, solution: Paths, subjFillType?: number, clipFillType?: number): boolean;
+    static CleanPolygons(polys: Paths, distance?: number): Paths;
   }
 
   export class ClipperOffset {

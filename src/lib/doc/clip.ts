@@ -10,6 +10,9 @@ import ClipperLib, { type Paths } from "clipper-lib";
 import type { BBox, Point } from "./types";
 
 const SCALE = 1000;
+// Merge vertices closer than 0.03 mm. Below cut precision, so invisible, but it
+// stops repeated boolean/offset ops from compounding into huge, slow paths.
+const CLEAN_DIST = 0.03 * SCALE;
 
 export type Ring = Point[];
 export type BooleanOp = "union" | "difference" | "intersection" | "xor";
@@ -53,7 +56,7 @@ export function offsetRings(rings: readonly Ring[], deltaMm: number): Ring[] {
   co.AddPaths(subject, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
   const solution: Paths = [];
   co.Execute(solution, deltaMm * SCALE);
-  return fromClipper(solution);
+  return fromClipper(ClipperLib.Clipper.CleanPolygons(solution, CLEAN_DIST));
 }
 
 const CLIP_TYPE: Record<BooleanOp, number> = {
@@ -72,7 +75,7 @@ export function booleanRings(subjectRings: readonly Ring[], clipRings: readonly 
   if (clip.length > 0) clipper.AddPaths(clip, ClipperLib.PolyType.ptClip, true);
   const solution: Paths = [];
   clipper.Execute(CLIP_TYPE[op], solution, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
-  return fromClipper(solution);
+  return fromClipper(ClipperLib.Clipper.CleanPolygons(solution, CLEAN_DIST));
 }
 
 /** Signed area (shoelace); sign indicates winding. */

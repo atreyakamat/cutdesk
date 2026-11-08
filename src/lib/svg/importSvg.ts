@@ -138,14 +138,18 @@ export function parseSvg(svg: string, opts: { sizeMm?: number } = {}): ImportedS
   let count = 0;
   while ((m = re.exec(body)) && count < 5000) {
     count++;
-    const a = attrs(m[2]);
-    let segs = elementSegs(m[1].toLowerCase(), a);
-    if (segs.length < 2) continue;
-    if (a.transform) segs = transformSegs(segs, parseTransform(a.transform));
-    // Drop any element whose geometry went non-finite (overflow/NaN transforms).
-    const eb = segsBBox(segs);
-    if (!eb || ![eb.minX, eb.minY, eb.maxX, eb.maxY].every(Number.isFinite)) continue;
-    collected.push(segs);
+    try {
+      const a = attrs(m[2]);
+      let segs = elementSegs(m[1].toLowerCase(), a); // parsePath may throw on malformed d
+      if (segs.length < 2) continue;
+      if (a.transform) segs = transformSegs(segs, parseTransform(a.transform));
+      // Drop any element whose geometry went non-finite (overflow/NaN transforms).
+      const eb = segsBBox(segs);
+      if (!eb || ![eb.minX, eb.minY, eb.maxX, eb.maxY].every(Number.isFinite)) continue;
+      collected.push(segs);
+    } catch {
+      // Skip a malformed element rather than failing the whole import.
+    }
   }
   if (collected.length === 0) return empty;
 
