@@ -949,10 +949,10 @@ export function MatCanvas() {
             <button type="button" className={btn} aria-label="Duplicate" title="Duplicate" onClick={() => st.duplicateObjects(ids)}>
               <Copy className="size-4" aria-hidden="true" />
             </button>
-            <button type="button" className={btn} aria-label="Bring forward" title="Bring forward" onClick={() => st.reorderObjects(ids, "forward")}>
+            <button type="button" className={btn} aria-label="Bring forward" title="Bring forward" onClick={() => st.restack("forward")}>
               <ChevronUp className="size-4" aria-hidden="true" />
             </button>
-            <button type="button" className={btn} aria-label="Send backward" title="Send backward" onClick={() => st.reorderObjects(ids, "backward")}>
+            <button type="button" className={btn} aria-label="Send backward" title="Send backward" onClick={() => st.restack("backward")}>
               <ChevronDown className="size-4" aria-hidden="true" />
             </button>
             <button type="button" className={btn} aria-label={allLocked ? "Unlock" : "Lock"} title={allLocked ? "Unlock" : "Lock"} onClick={() => st.setObjectLocked(ids, !allLocked)}>
