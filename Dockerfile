@@ -13,7 +13,10 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV DOCKER_STANDALONE=1 NEXT_TELEMETRY_DISABLED=1
+# The control room's address (e.g. http://192.168.1.10:8200), baked into the
+# frame-ancestors header so CutDesk opens in a House of Stix window.
+ARG CONTROL_ROOM_ORIGIN=""
+ENV DOCKER_STANDALONE=1 NEXT_TELEMETRY_DISABLED=1 CONTROL_ROOM_ORIGIN=$CONTROL_ROOM_ORIGIN
 RUN npm run build
 
 FROM node:22-alpine AS runner
@@ -26,4 +29,5 @@ COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 CMD wget -qO- http://127.0.0.1:3000/health.json >/dev/null || exit 1
 CMD ["node", "server.js"]

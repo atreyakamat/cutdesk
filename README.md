@@ -82,7 +82,8 @@ Needs **Node 22+**. Works in any current Chromium or Firefox; machine features (
 ### ⚙️ Cutting & output
 - **Layers** with an operation each — **cut**, **score**, **draw**, or **reference** (never cut). Reorder by dragging.
 - **Preview cut** animates the path in machine order: draw → score → cut.
-- **Print-then-cut** — exports a printable sheet with registration marks that line up with the cut file.
+- **Print-then-cut** — exports a printable sheet with registration marks that line up with the cut file (for open-firmware cutters).
+- **Cricut Design Space sticker sheets** (`/sheets`) — drop in sticker PNGs with quantities; they're turned and packed by their real shape onto Design Space's A4 Print Then Cut area across as many sheets as needed, and download as transparent 300 DPI PNGs. This is the path for stock Cricut machines.
 - **Export** — SVG (all or per-operation), **PNG**, **PDF**, and **G-code** (GRBL).
 - **Send to a machine** — a pluggable transport layer: a built-in simulator, **USB (Web Serial)**, a **WebSocket bridge** (for Bluetooth-as-serial / background use), and native serial in the desktop app.
 
