@@ -185,7 +185,7 @@ export function TemplatesDialog() {
                     key={t.id}
                     type="button"
                     onClick={() => applyBuiltin(t)}
-                    className="group flex flex-col overflow-hidden rounded-control border border-line bg-raised text-left hover:border-ink"
+                    className="group flex flex-col overflow-hidden rounded-control border border-line bg-raised text-left transition-transform hover:-translate-y-0.5 hover:border-ink"
                   >
                     <span className="aspect-square border-b border-line p-2">
                       <Thumb doc={doc} />
@@ -204,7 +204,7 @@ export function TemplatesDialog() {
                 <h3 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-ink-faint">{cat}</h3>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
                   {items.map((t) => (
-                    <div key={t.id} className="group relative flex flex-col overflow-hidden rounded-control border border-line bg-raised">
+                    <div key={t.id} className="group relative flex flex-col overflow-hidden rounded-control border border-line bg-raised transition-transform hover:-translate-y-0.5">
                       <button type="button" onClick={() => applyUser(t)} className="flex flex-col text-left hover:opacity-90" title={t.description || t.name}>
                         <span className="aspect-square border-b border-line p-2">
                           <Thumb doc={t.doc} />

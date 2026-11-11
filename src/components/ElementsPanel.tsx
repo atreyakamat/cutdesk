@@ -128,7 +128,7 @@ export function ElementsPanel() {
 
       {/* Flyout content for the active section */}
       {section && (
-        <div className="flex w-56 min-h-0 flex-col max-lg:w-48">
+        <div className="pop-in flex w-56 min-h-0 flex-col max-lg:w-48">
           <div className="flex items-center justify-between px-3 pb-1 pt-3">
             <h2 className="font-display text-sm font-semibold capitalize tracking-tight">{section}</h2>
           </div>
@@ -175,7 +175,7 @@ export function ElementsPanel() {
                     onDragStart={(ev) => ev.dataTransfer.setData(DND_MIME, serializeDragPayload({ t: "path", d: s.d, w: s.width, h: s.height, name: s.name }))}
                     onClick={() => insertShape(s)}
                     title={`${s.name} — click or drag onto the mat`}
-                    className="group grid aspect-square place-items-center rounded-control border border-line bg-raised p-2 text-ink-soft hover:border-ink hover:text-ink"
+                    className="group grid aspect-square place-items-center rounded-control border border-line bg-raised p-2 text-ink-soft transition-transform hover:-translate-y-0.5 hover:border-ink hover:text-ink active:translate-y-0"
                   >
                     <svg viewBox={`-2 -2 ${s.width + 4} ${s.height + 4}`} className="size-full" aria-hidden="true">
                       <path d={s.d} fill="currentColor" />
@@ -195,7 +195,7 @@ export function ElementsPanel() {
                     onDragStart={(ev) => ev.dataTransfer.setData(DND_MIME, serializeDragPayload({ t: "emoji", char: e.char, name: e.name }))}
                     onClick={() => insertEmoji(e)}
                     title={`${e.name} — click or drag onto the mat`}
-                    className="grid aspect-square place-items-center rounded-control border border-line bg-raised text-xl leading-none hover:border-ink"
+                    className="grid aspect-square place-items-center rounded-control border border-line bg-raised text-xl leading-none transition-transform hover:-translate-y-0.5 hover:border-ink active:translate-y-0"
                   >
                     <span aria-hidden="true">{e.char}</span>
                   </button>
