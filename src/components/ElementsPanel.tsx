@@ -95,6 +95,12 @@ export function ElementsPanel() {
     };
   }, [section]);
 
+  useEffect(() => {
+    // Start collapsed on small screens so the flyout doesn't cover the mat on load.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time responsive default on mount
+    if (typeof window !== "undefined" && window.innerWidth < 1024) setSection(null);
+  }, []);
+
   // Clicking the active section icon collapses the flyout (just the rail shows).
   const toggle = (id: Section) => setSection((cur) => (cur === id ? null : id));
 
@@ -130,7 +136,7 @@ export function ElementsPanel() {
 
       {/* Flyout content for the active section */}
       {section && (
-        <div className="pop-in flex w-56 min-h-0 flex-col max-lg:w-48">
+        <div className="pop-in flex w-56 min-h-0 flex-col bg-panel max-lg:fixed max-lg:inset-y-0 max-lg:left-28 max-lg:top-12 max-lg:z-30 max-lg:border-l max-lg:border-line max-lg:shadow-pop">
           <div className="flex items-center justify-between px-3 pb-1 pt-3">
             <h2 className="font-display text-sm font-semibold capitalize tracking-tight">{section}</h2>
           </div>

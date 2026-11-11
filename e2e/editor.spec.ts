@@ -274,4 +274,17 @@ test.describe("CutDesk editor", () => {
     await page.getByRole("radio", { name: "Cut" }).click();
     await expect(panel).toBeHidden();
   });
+
+  test("on a phone viewport the Elements flyout starts collapsed and opens on tap", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 780 });
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    const panel = page.getByRole("complementary", { name: "Elements library" });
+    // The rail is visible, but the flyout (its search box) is collapsed on load.
+    await expect(panel.getByRole("button", { name: "Shapes" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: /Search shapes/i })).toHaveCount(0);
+    // Tapping a rail section opens the flyout overlay.
+    await panel.getByRole("button", { name: "Shapes" }).click();
+    await expect(page.getByRole("textbox", { name: /Search shapes/i })).toBeVisible();
+  });
 });
