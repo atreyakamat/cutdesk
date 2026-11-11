@@ -119,6 +119,22 @@ test.describe("CutDesk editor", () => {
     await expect(page.getByText(/2 objects, 1 selected/)).toBeVisible();
   });
 
+  test("duplicates via the floating selection toolbar", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/^0 objects$/)).toBeVisible();
+    await pickTool(page, "Rectangle");
+    const c = await matCentre(page);
+    await page.mouse.click(c.x, c.y);
+    await expect(page.getByText(/1 object/)).toBeVisible();
+
+    await pickTool(page, "Select");
+    await page.mouse.click(c.x, c.y);
+    const toolbar = page.getByRole("toolbar", { name: "Selection actions" });
+    await expect(toolbar).toBeVisible();
+    await toolbar.getByRole("button", { name: "Duplicate" }).click();
+    await expect(page.getByText(/2 objects/)).toBeVisible();
+  });
+
   test("opens the keyboard-shortcut help with ?", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible(); // hydrated

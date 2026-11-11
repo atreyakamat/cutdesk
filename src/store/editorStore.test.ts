@@ -818,6 +818,23 @@ describe("stroke and shadow styling", () => {
   });
 });
 
+describe("object stacking order", () => {
+  it("brings to front/back and steps a shape forward/backward", () => {
+    const [a, b, c] = state().addObjects([{ geo: rect() }, { geo: rect() }, { geo: rect() }]);
+    const order = () => state().doc.objects.map((o) => o.id);
+    expect(order()).toEqual([a, b, c]);
+
+    state().reorderObjects([a], "front");
+    expect(order()).toEqual([b, c, a]);
+    state().reorderObjects([a], "back");
+    expect(order()).toEqual([a, b, c]);
+    state().reorderObjects([a], "forward");
+    expect(order()).toEqual([b, a, c]);
+    state().reorderObjects([a], "backward");
+    expect(order()).toEqual([a, b, c]);
+  });
+});
+
 describe("workspace mode", () => {
   it("defaults to design and toggles between design and cut", () => {
     expect(state().mode).toBe("design");

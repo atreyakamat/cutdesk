@@ -153,6 +153,8 @@ interface EditorState {
   addMonogram: (text: string, fontId: FontId, frame: FrameKind) => Promise<void>;
   removeObjects: (ids: readonly string[]) => void;
   duplicateObjects: (ids: readonly string[]) => void;
+  /** Change stacking order of the given objects within the document. */
+  reorderObjects: (ids: readonly string[], where: "front" | "back" | "forward" | "backward") => void;
   copy: () => void;
   cut: () => void;
   paste: () => void;
@@ -664,6 +666,36 @@ export const useEditor = create<EditorState>()((set, get) => {
         return extra.length ? { ...d, objects: [...d.objects, ...extra] } : d;
       });
       if (copies.length) set({ selection: copies });
+    },
+
+    reorderObjects: (ids, where) => {
+      const sel = new Set(ids);
+      if (sel.size === 0) return;
+      get().commitDoc((d) => {
+        if (!d.objects.some((o) => sel.has(o.id))) return d;
+        if (where === "front") {
+          const rest = d.objects.filter((o) => !sel.has(o.id));
+          const picked = d.objects.filter((o) => sel.has(o.id));
+          return { ...d, objects: [...rest, ...picked] };
+        }
+        if (where === "back") {
+          const rest = d.objects.filter((o) => !sel.has(o.id));
+          const picked = d.objects.filter((o) => sel.has(o.id));
+          return { ...d, objects: [...picked, ...rest] };
+        }
+        // One step: move each selected object past its nearest unselected neighbour.
+        const next = d.objects.slice();
+        if (where === "forward") {
+          for (let i = next.length - 2; i >= 0; i--) {
+            if (sel.has(next[i].id) && !sel.has(next[i + 1].id)) [next[i], next[i + 1]] = [next[i + 1], next[i]];
+          }
+        } else {
+          for (let i = 1; i < next.length; i++) {
+            if (sel.has(next[i].id) && !sel.has(next[i - 1].id)) [next[i], next[i - 1]] = [next[i - 1], next[i]];
+          }
+        }
+        return { ...d, objects: next };
+      });
     },
 
     copy: () => {

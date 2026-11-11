@@ -1,7 +1,7 @@
 "use client";
 
 import type Konva from "konva";
-import { Pause, Play, RotateCcw, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Lock, LockOpen, Pause, Play, RotateCcw, Trash2, X } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Ellipse, Layer, Path, Rect, Stage, Transformer } from "react-konva";
 import { buildCutPlan } from "@/lib/doc/cutPlan";
@@ -14,6 +14,7 @@ import { canFinishPen, dropDuplicateTail, penSegs, type PenNode } from "@/lib/do
 import type { BBox, Point } from "@/lib/doc/types";
 import { useEditor } from "@/store/editorStore";
 import { Button } from "../ui/Controls";
+import { cn } from "../ui/cn";
 import { CutPreviewLayer } from "./CutPreview";
 import { MatBackdrop } from "./MatBackdrop";
 import { ObjectNode } from "./ObjectNode";
@@ -923,6 +924,44 @@ export function MatCanvas() {
             style={{ left, top }}
           >
             {formatValue(box.maxX - box.minX, doc.unit)} × {formatValue(box.maxY - box.minY, doc.unit)} {doc.unit}
+          </div>
+        );
+      })()}
+
+      {(() => {
+        // Canva-style floating quick-actions toolbar above the selection.
+        if (selection.length === 0 || tool !== "select" || preview || nodeEditId || dimBox || viewport.width === 0 || !selBox) return null;
+        const left = view.tx + ((selBox.minX + selBox.maxX) / 2) * view.scale;
+        const topEdge = view.ty + selBox.minY * view.scale;
+        const below = topEdge < 52; // flip under the selection when it's near the top
+        const top = below ? view.ty + selBox.maxY * view.scale + 10 : topEdge - 10;
+        const ids = selection;
+        const allLocked = ids.every((id) => objectById.get(id)?.locked);
+        const st = useEditor.getState();
+        const btn = "grid size-7 place-items-center rounded-control text-ink-soft hover:bg-sunken";
+        return (
+          <div
+            role="toolbar"
+            aria-label="Selection actions"
+            className={cn("pop-in absolute z-20 flex -translate-x-1/2 items-center gap-0.5 rounded-pop bg-panel p-1 shadow-pop", below ? "translate-y-0" : "-translate-y-full")}
+            style={{ left, top }}
+          >
+            <button type="button" className={btn} aria-label="Duplicate" title="Duplicate" onClick={() => st.duplicateObjects(ids)}>
+              <Copy className="size-4" aria-hidden="true" />
+            </button>
+            <button type="button" className={btn} aria-label="Bring forward" title="Bring forward" onClick={() => st.reorderObjects(ids, "forward")}>
+              <ChevronUp className="size-4" aria-hidden="true" />
+            </button>
+            <button type="button" className={btn} aria-label="Send backward" title="Send backward" onClick={() => st.reorderObjects(ids, "backward")}>
+              <ChevronDown className="size-4" aria-hidden="true" />
+            </button>
+            <button type="button" className={btn} aria-label={allLocked ? "Unlock" : "Lock"} title={allLocked ? "Unlock" : "Lock"} onClick={() => st.setObjectLocked(ids, !allLocked)}>
+              {allLocked ? <LockOpen className="size-4" aria-hidden="true" /> : <Lock className="size-4" aria-hidden="true" />}
+            </button>
+            <div className="mx-0.5 h-5 w-px bg-line" />
+            <button type="button" className={cn(btn, "hover:text-blade")} aria-label="Delete" title="Delete" onClick={() => st.removeObjects(ids)}>
+              <Trash2 className="size-4" aria-hidden="true" />
+            </button>
           </div>
         );
       })()}
