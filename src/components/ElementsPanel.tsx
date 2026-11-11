@@ -91,7 +91,7 @@ export function ElementsPanel() {
   };
 
   return (
-    <aside aria-label="Elements library" className="flex w-64 shrink-0 flex-col border-r border-line bg-panel max-lg:w-56">
+    <aside aria-label="Elements library" className="flex min-h-0 w-64 shrink-0 flex-col overflow-hidden border-r border-line bg-panel max-lg:w-56">
       <div className="flex items-center justify-between px-3 pt-3">
         <h2 className="font-display text-sm font-semibold tracking-tight">Elements</h2>
         <div className="flex gap-1">

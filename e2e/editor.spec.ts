@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
+/** Click a tool in the left Tools rail — scoped so gallery items can't clash. */
+async function pickTool(page: Page, name: string) {
+  await page.getByRole("navigation", { name: "Tools" }).getByRole("button", { name }).click();
+}
+
 /** Centre of the cutting-mat canvas, in viewport pixels. */
 async function matCentre(page: Page) {
   const stage = page.locator(".konvajs-content canvas").first();
@@ -25,7 +30,7 @@ test.describe("CutDesk editor", () => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
 
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
 
@@ -36,7 +41,7 @@ test.describe("CutDesk editor", () => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible(); // wait for hydration
 
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
@@ -51,7 +56,7 @@ test.describe("CutDesk editor", () => {
 
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
@@ -83,14 +88,14 @@ test.describe("CutDesk editor", () => {
     const c = await matCentre(page);
 
     // First shape, then recolour it from the Fill swatches in the inspector.
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
     await page.getByRole("button", { name: "Fill #FF8FA3" }).click();
 
     // Second shape, then select all and group. Assert on the status bar text
     // (the inspector heading also says "2 objects" when multiple are selected).
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     await page.mouse.click(c.x + 90, c.y + 50);
     await expect(page.getByText(/2 objects, 1 selected/)).toBeVisible();
     await page.keyboard.press("Control+a");
@@ -103,7 +108,7 @@ test.describe("CutDesk editor", () => {
   test("right-click opens the context menu and duplicates", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
@@ -126,7 +131,7 @@ test.describe("CutDesk editor", () => {
   test("shows the autosave 'Saved' indicator after an edit", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
@@ -135,7 +140,7 @@ test.describe("CutDesk editor", () => {
   test("saves a style preset and shows it as a swatch", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
@@ -157,7 +162,7 @@ test.describe("CutDesk editor", () => {
   test("exports the design as a PNG", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
@@ -173,10 +178,10 @@ test.describe("CutDesk editor", () => {
   test("unions two shapes into one via the Combine buttons", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     await page.mouse.click(c.x + 25, c.y + 25);
     await page.keyboard.press("Control+a");
     await expect(page.getByText(/2 objects, 2 selected/)).toBeVisible();
@@ -187,7 +192,7 @@ test.describe("CutDesk editor", () => {
   test("adds an outline around a shape", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
@@ -201,7 +206,7 @@ test.describe("CutDesk editor", () => {
 
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Text", exact: true }).click(); // the tool, not "Add text"
+    await page.getByRole("navigation", { name: "Tools" }).getByRole("button", { name: "Text", exact: true }).click(); // the tool, not a panel chip
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
     await expect(page.getByText(/1 object/)).toBeVisible();
@@ -219,10 +224,10 @@ test.describe("CutDesk editor", () => {
 
     await page.goto("/");
     await expect(page.getByText(/^0 objects$/)).toBeVisible();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     const c = await matCentre(page);
     await page.mouse.click(c.x, c.y);
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await pickTool(page, "Rectangle");
     await page.mouse.click(c.x + 60, c.y + 40);
     await page.keyboard.press("Control+a");
     await expect(page.getByText(/2 objects, 2 selected/)).toBeVisible();
@@ -240,5 +245,17 @@ test.describe("CutDesk editor", () => {
 
     await page.reload();
     await expect(html).toHaveAttribute("data-theme", "dark");
+  });
+
+  test("adds a shape from the Elements panel and toggles workspace mode", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByRole("complementary", { name: "Elements library" });
+    await expect(panel).toBeVisible(); // Design mode by default
+    await panel.getByRole("button", { name: "Heart" }).click();
+    await expect(page.getByText(/1 object/)).toBeVisible();
+
+    // Switching to Cut mode puts away the Elements panel.
+    await page.getByRole("radio", { name: "Cut" }).click();
+    await expect(panel).toBeHidden();
   });
 });
