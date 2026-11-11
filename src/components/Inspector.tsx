@@ -37,6 +37,7 @@ import { fromMm, formatLength, toMm, unitPrecision } from "@/lib/doc/units";
 import { FONTS } from "@/lib/text/fonts";
 import { listCustomFonts, saveCustomFont, type CustomFontMeta } from "@/lib/text/customFonts";
 import { deleteStylePreset, listStylePresets, saveStylePreset } from "@/lib/ui/stylePresets";
+import { deleteBrandColor, listBrandColors, saveBrandColor } from "@/lib/ui/brandKit";
 import type { FontId, MatPresetId, Unit } from "@/lib/doc/types";
 import { selectedObjectsOf, useEditor } from "@/store/editorStore";
 import { Row, Section, Select } from "./ui/Controls";
@@ -281,6 +282,11 @@ function SelectionSection() {
     void presetVer; // re-read local storage after a save/delete
     return listStylePresets();
   }, [presetVer]);
+  const [brand, setBrand] = useState<string[]>([]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time load of the brand palette from storage after mount (avoids an SSR hydration mismatch)
+    setBrand(listBrandColors());
+  }, []);
 
   const box = useMemo(() => unionBBox(objs.map(worldAABB)), [objs]);
   if (!box) return null;
@@ -538,6 +544,51 @@ function SelectionSection() {
                 </label>
               </div>
             )}
+
+            <div className="flex flex-col gap-1.5 border-t border-line pt-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-ink-faint">Brand palette</span>
+                <button
+                  type="button"
+                  disabled={!fill && !stroke}
+                  onClick={() => {
+                    const c = fill ?? stroke;
+                    if (c) setBrand(saveBrandColor(c));
+                  }}
+                  title="Save the current colour to your brand kit"
+                  className="inline-flex h-6 items-center gap-1 rounded-control border border-line bg-raised px-1.5 text-xs hover:bg-sunken disabled:opacity-40"
+                >
+                  <Plus className="size-3" aria-hidden="true" />
+                  Save
+                </button>
+              </div>
+              {brand.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {brand.map((c) => (
+                    <span key={c} className="group relative inline-block">
+                      <button
+                        type="button"
+                        aria-label={`Apply brand colour ${c}`}
+                        title={c}
+                        onClick={() => store().setStyle(ids, { fill: c })}
+                        style={{ backgroundColor: c }}
+                        className="size-6 rounded-full border border-line"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Remove brand colour"
+                        onClick={() => setBrand(deleteBrandColor(c))}
+                        className="absolute -right-1 -top-1 hidden size-3.5 place-items-center rounded-full bg-ink text-[9px] leading-none text-on-ink group-hover:grid"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-ink-faint">Save fills or strokes here to reuse across designs.</p>
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
               {EyeDropperCtor && (
