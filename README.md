@@ -60,8 +60,9 @@ Needs **Node 22+**. Works in any current Chromium or Firefox; machine features (
 - **Quality of life** — copy/cut/paste across pages (`Ctrl C/X/V`), right-click context menu, an autosave **Saved** indicator, and a keyboard-shortcut sheet (press `?`).
 
 ### 🎨 Design
-- **Per-object fill & opacity**, independent of cut semantics, with colour swatches, a native **eyedropper**, and saveable **style presets**.
-- **Text** becomes real outlines so it can be cut. Four bundled OFL fonts (Lilita One, Pacifico, Bricolage Grotesque, Hanken Grotesk).
+- **Design ⇄ Cut modes** — a top-bar switch flips between a Canva-style design workspace (with the Elements library) and the focused cutting layout.
+- **Per-object fill, stroke, drop shadow, gradient & opacity**, independent of cut semantics, with colour swatches, a native **eyedropper**, two-stop **linear gradients**, and saveable **style presets**. (All display-only — cut geometry is never touched.)
+- **Text** becomes real outlines so it can be cut. Four bundled OFL fonts (Lilita One, Pacifico, Bricolage Grotesque, Hanken Grotesk), plus **upload your own** `.ttf`/`.otf`/`.woff`.
 - **Curved text** — bend text along an arc, and keep it editable.
 
 ### 🔺 Vector operations
@@ -72,9 +73,10 @@ Needs **Node 22+**. Works in any current Chromium or Firefox; machine features (
 - **Auto-nest** — "Arrange to fit" packs the selection tightly on the mat to save material.
 
 ### 🖼️ Content & gallery
+- An **Elements library** (Canva-style docked panel) with shapes, icons, emoji, text presets and your uploads — **click or drag** any item onto the mat.
 - A **shape gallery**, generated **numbers & letters**, **emoji**, and **image upload** (stored locally in the browser).
 - **Image → sticker** — trace artwork into a silhouette with an adjustable border, keeping the original as reference art.
-- **Templates** — built-in starters (greeting card, round labels, sticker sheet, gift tags) plus "save this page as a template."
+- **Templates + builder** — built-in starters (greeting card, round labels, sticker sheet, gift tags, business cards, hexagon labels, bunting, bookmarks); save the current page as a template with a category/description, rename/duplicate/delete, and **export/import** template bundles.
 - **Remote catalog** — point the gallery at a hosted JSON manifest to load a whole asset library (see [`docs/gallery-catalog.md`](docs/gallery-catalog.md)); build one from a folder with `scripts/build-catalog.mjs`.
 
 ### ⚙️ Cutting & output
@@ -115,13 +117,15 @@ Mouse wheel pans; `Ctrl`/`⌘` + wheel zooms; Space or middle-drag pans. **Doubl
 | Target | How |
 | --- | --- |
 | **Web** | `npm run dev` / deploy the static or Node build |
-| **Desktop** (Win/macOS/Linux) | `npm run desktop` — a [Tauri](https://tauri.app) app with native serial (`src-tauri/`) |
+| **Desktop** (Win/macOS/Linux) | `npm run desktop` — a [Tauri](https://tauri.app) app with native serial (`src-tauri/`); build installers per [`docs/desktop.md`](docs/desktop.md) |
 | **Docker** | `docker compose up --build` → http://localhost:8304 |
 
 ### Driving a real machine
 Stock Cricut machines use a proprietary, server-locked protocol and can't be driven from a browser. CutDesk's supported paths are:
 - **Open-firmware cutters** (e.g. a Cricut running **CutcutGo**/GRBL) over **Web Serial** (wired) or the **bridge server** (`bridge/`, which also covers paired-Bluetooth-as-serial).
 - **SVG / G-code export** as the universal fallback — open it in Inkcut, the cutter's own software, etc.
+
+A from-scratch effort to drive a **Cricut Explore 3** directly over USB is under way (capture-analysis toolkit + safe-replay vetting, blocked on a packet capture) — see [`docs/cricut-explore3.md`](docs/cricut-explore3.md). It analyses captured traffic before anything is ever sent to hardware.
 
 ### House of Stix
 CutDesk integrates with the [House of Stix](docs/houseofstix.md) control room: it serves a static `public/health.json`, maps Docker to host port **8304**, and ships a `services.yaml` entry to paste into that repo.
