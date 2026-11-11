@@ -86,6 +86,22 @@ describe("project files", () => {
     expect(parseProject(text)).toEqual({ pages: [a, b], activePage: 1 });
   });
 
+  it("round-trips a text object that uses an uploaded custom font id", () => {
+    const base = sampleDoc();
+    const doc: Doc = {
+      ...base,
+      objects: [
+        ...base.objects,
+        obj({
+          id: "label",
+          layerId: base.layers[0].id,
+          geo: { kind: "text", d: "M0 0L10 0", text: "Hi", fontId: "cf_custom123", size: 20, letterSpacing: 0, arc: 0, width: 10, height: 5 },
+        }),
+      ],
+    };
+    expect(parseProject(ser(doc))).toEqual({ pages: [doc], activePage: 0 });
+  });
+
   it("opens a legacy v1 (single doc) file as one page", () => {
     const doc = sampleDoc();
     const legacy = JSON.stringify({ format: "cutdesk", version: 1, doc });

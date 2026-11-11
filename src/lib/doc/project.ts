@@ -27,7 +27,7 @@ const geometry = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("text"),
     text: z.string().max(2000),
-    fontId: z.enum(["lilita", "pacifico", "bricolage", "hanken"]),
+    fontId: z.string().min(1).max(64),
     size: positive,
     letterSpacing: num,
     arc: z.number().min(-360).max(360).optional(),

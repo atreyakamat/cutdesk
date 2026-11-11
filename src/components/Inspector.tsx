@@ -35,6 +35,7 @@ import { bboxSize, unionBBox, worldAABB } from "@/lib/doc/geometry";
 import { MAT_PRESETS, MAX_MAT_MM, MIN_MAT_MM } from "@/lib/doc/mats";
 import { fromMm, formatLength, toMm, unitPrecision } from "@/lib/doc/units";
 import { FONTS } from "@/lib/text/fonts";
+import { listCustomFonts, saveCustomFont, type CustomFontMeta } from "@/lib/text/customFonts";
 import { deleteStylePreset, listStylePresets, saveStylePreset } from "@/lib/ui/stylePresets";
 import type { FontId, MatPresetId, Unit } from "@/lib/doc/types";
 import { selectedObjectsOf, useEditor } from "@/store/editorStore";
@@ -153,6 +154,29 @@ function TextFields({ id }: { id: string }) {
   const unit = useEditor((s) => s.doc.unit);
   const ref = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState<string | null>(null);
+  const [customFonts, setCustomFonts] = useState<CustomFontMeta[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    listCustomFonts().then(
+      (f) => alive && setCustomFonts(f),
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const uploadFont = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const meta = await saveCustomFont(file);
+      setCustomFonts(await listCustomFonts());
+      if (geo) void setTextProps(id, { fontId: meta.id });
+    } catch (err) {
+      useEditor.getState().notify("error", err instanceof Error ? err.message : "Couldn't add that font.");
+    }
+  };
 
   useEffect(() => {
     if (tick > 0) {
@@ -178,17 +202,36 @@ function TextFields({ id }: { id: string }) {
           onBlur={() => setDraft(null)}
           className="w-full resize-none rounded-control border border-line bg-raised px-2.5 py-1.5 text-sm hover:border-line-strong focus:border-ink"
         />
-        <Select
-          aria-label="Font"
-          value={geo.fontId}
-          onChange={(e) => void setTextProps(id, { fontId: e.target.value as FontId })}
-        >
-          {FONTS.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.label}
-            </option>
-          ))}
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            aria-label="Font"
+            value={geo.fontId}
+            onChange={(e) => void setTextProps(id, { fontId: e.target.value as FontId })}
+          >
+            {FONTS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+            {customFonts.length > 0 && (
+              <optgroup label="Your fonts">
+                {customFonts.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </Select>
+          <label
+            className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-control border border-line bg-raised px-2 text-xs hover:bg-sunken"
+            title="Upload a .ttf, .otf or .woff font"
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            Font
+            <input type="file" accept=".ttf,.otf,.woff,font/ttf,font/otf,font/woff" className="hidden" onChange={(e) => void uploadFont(e.target.files?.[0] ?? null)} />
+          </label>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <NumberField
             label="Size"

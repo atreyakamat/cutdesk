@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { loadCustomFontsIntoCache } from "@/lib/text/customFonts";
 import { ElementsPanel } from "./ElementsPanel";
 import { EmptyState } from "./EmptyState";
 import { ImportDialog } from "./ImportDialog";
@@ -25,6 +27,10 @@ import { useEditor } from "@/store/editorStore";
 export default function Editor() {
   useAutosave();
   useShortcuts();
+  useEffect(() => {
+    // Re-register any uploaded fonts so text using them can be re-outlined.
+    void loadCustomFontsIntoCache();
+  }, []);
   const panelsOpen = useEditor((s) => s.panelsOpen);
   const designMode = useEditor((s) => s.mode === "design");
 

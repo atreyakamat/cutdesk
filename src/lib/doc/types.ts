@@ -11,7 +11,8 @@ export const OPERATIONS: readonly Operation[] = ["cut", "score", "draw", "print"
 
 export type Unit = "mm" | "in";
 
-export type FontId = "lilita" | "pacifico" | "bricolage" | "hanken";
+// The four bundled fonts, plus any uploaded custom font (its generated id).
+export type FontId = "lilita" | "pacifico" | "bricolage" | "hanken" | (string & {});
 
 export interface Transform {
   x: number;
