@@ -18,11 +18,13 @@ interface Props {
   onDragEnd: DragHandler;
 }
 
-function ImageNode({ obj, common }: { obj: DesignObject; common: Record<string, unknown> }) {
+function ImageNode({ obj, common, outline }: { obj: DesignObject; common: Record<string, unknown>; outline: Record<string, unknown> }) {
   const geo = obj.geo;
   const image = useLoadedImage(geo.kind === "image" ? geo.src : "");
   if (geo.kind !== "image" || !image) return null;
-  return <KImage {...common} image={image} width={geo.width} height={geo.height} />;
+  // Images carry no operation outline; only a design stroke, if set, applies.
+  const stroke = obj.style?.stroke ? outline : {};
+  return <KImage {...common} {...stroke} image={image} width={geo.width} height={geo.height} />;
 }
 
 /**
@@ -45,10 +47,23 @@ export const ObjectNode = memo(function ObjectNode({ obj, layer, draggable, onDr
     onDragStart,
     onDragMove,
     onDragEnd,
+    ...(obj.style?.shadow
+      ? { shadowColor: "#000000", shadowBlur: 10, shadowOpacity: 0.28, shadowOffsetY: 3 }
+      : {}),
   };
 
-  const outline =
-    layer.operation === "print"
+  // A design stroke (colour + mm width, scales with zoom) replaces the operation
+  // outline for display; the cut geometry itself is unchanged either way.
+  const designStroke = obj.style?.stroke;
+  const outline = designStroke
+    ? {
+        stroke: designStroke,
+        strokeWidth: obj.style?.strokeWidth ?? 1,
+        strokeScaleEnabled: true,
+        hitStrokeWidth: 10,
+        lineJoin: "round" as const,
+      }
+    : layer.operation === "print"
       ? {}
       : {
           stroke: OPERATION_COLOR[layer.operation],
@@ -72,6 +87,6 @@ export const ObjectNode = memo(function ObjectNode({ obj, layer, draggable, onDr
     case "text":
       return <Path {...common} {...outline} fill={fill} data={geo.d} />;
     case "image":
-      return <ImageNode obj={obj} common={common} />;
+      return <ImageNode obj={obj} common={common} outline={outline} />;
   }
 });

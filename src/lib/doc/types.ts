@@ -62,6 +62,12 @@ export interface ObjectStyle {
   fill?: string;
   /** 0–1. */
   opacity?: number;
+  /** Hex outline colour for display; replaces the operation outline. */
+  stroke?: string;
+  /** Outline width in millimetres (scales with zoom). */
+  strokeWidth?: number;
+  /** Soft drop shadow for display. */
+  shadow?: boolean;
 }
 
 export interface DesignObject extends Transform {

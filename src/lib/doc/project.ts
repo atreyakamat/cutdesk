@@ -66,6 +66,9 @@ const object = z.object({
     .object({
       fill: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       opacity: z.number().min(0).max(1).optional(),
+      stroke: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      strokeWidth: z.number().min(0).max(50).optional(),
+      shadow: z.boolean().optional(),
     })
     .optional(),
   groupId: z.string().min(1).max(64).optional(),

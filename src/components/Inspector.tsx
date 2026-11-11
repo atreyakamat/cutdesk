@@ -250,6 +250,9 @@ function SelectionSection() {
   const fillable = objs.some((o) => o.geo.kind !== "image");
   const fill = single?.style?.fill;
   const opacityPct = Math.round((single?.style?.opacity ?? objs[0].style?.opacity ?? 1) * 100);
+  const stroke = single?.style?.stroke;
+  const strokeW = single?.style?.strokeWidth ?? objs[0].style?.strokeWidth ?? 1;
+  const shadowOn = objs.every((o) => o.style?.shadow);
   const canGroup = objs.length >= 2;
   const canUngroup = objs.some((o) => !!o.groupId);
   const shapeCount = objs.filter((o) => o.geo.kind !== "image").length;
@@ -378,6 +381,67 @@ function SelectionSection() {
                 className="flex-1"
               />
               <span className="w-9 text-right tabular-nums">{opacityPct}%</span>
+            </label>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="w-14 text-sm text-ink-soft">Stroke</span>
+              <button
+                type="button"
+                aria-label="No stroke"
+                title="No stroke"
+                onClick={() => store().setStyle(ids, { stroke: undefined })}
+                className={cn("grid size-6 place-items-center rounded-full border", !stroke ? "border-ink" : "border-line")}
+              >
+                <span className="block h-px w-4 -rotate-45 bg-blade" />
+              </button>
+              {LAYER_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`Stroke ${c}`}
+                  onClick={() => store().setStyle(ids, { stroke: c })}
+                  style={{ background: c }}
+                  className={cn(
+                    "size-6 rounded-full border",
+                    stroke?.toLowerCase() === c.toLowerCase() ? "border-ink ring-2 ring-ink/30" : "border-line",
+                  )}
+                />
+              ))}
+              <label className="relative size-6 overflow-hidden rounded-full border border-line" title="Custom stroke colour">
+                <input
+                  type="color"
+                  aria-label="Custom stroke colour"
+                  value={stroke ?? "#000000"}
+                  onChange={(e) => store().setStyle(ids, { stroke: e.target.value })}
+                  className="absolute -inset-1 cursor-pointer"
+                />
+              </label>
+            </div>
+            {stroke && (
+              <label className="flex items-center gap-2 text-sm text-ink-soft">
+                <span className="w-14">Width</span>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={10}
+                  step={0.1}
+                  aria-label="Stroke width (mm)"
+                  value={strokeW}
+                  onChange={(e) => store().setStyle(ids, { strokeWidth: Number(e.target.value) })}
+                  className="flex-1"
+                />
+                <span className="w-12 text-right tabular-nums">{strokeW.toFixed(1)}mm</span>
+              </label>
+            )}
+            <label className="flex items-center gap-2 text-sm text-ink-soft">
+              <input
+                type="checkbox"
+                aria-label="Drop shadow"
+                checked={shadowOn}
+                onChange={(e) => store().setStyle(ids, { shadow: e.target.checked || undefined })}
+                className="size-4 accent-ink"
+              />
+              <span>Drop shadow</span>
             </label>
 
             <div className="flex items-center gap-2">

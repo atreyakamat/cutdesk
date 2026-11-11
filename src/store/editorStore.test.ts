@@ -793,6 +793,23 @@ describe("lock and hide", () => {
   });
 });
 
+describe("stroke and shadow styling", () => {
+  it("sets stroke colour/width and shadow, and clears only the keys set to undefined", () => {
+    const id = state().addObject({ geo: rect() });
+    state().setStyle([id], { stroke: "#112233", strokeWidth: 2, shadow: true });
+    let o = state().doc.objects.find((x) => x.id === id)!;
+    expect(o.style?.stroke).toBe("#112233");
+    expect(o.style?.strokeWidth).toBe(2);
+    expect(o.style?.shadow).toBe(true);
+
+    state().setStyle([id], { stroke: undefined, shadow: undefined });
+    o = state().doc.objects.find((x) => x.id === id)!;
+    expect(o.style?.stroke).toBeUndefined();
+    expect(o.style?.shadow).toBeUndefined();
+    expect(o.style?.strokeWidth).toBe(2); // untouched
+  });
+});
+
 describe("workspace mode", () => {
   it("defaults to design and toggles between design and cut", () => {
     expect(state().mode).toBe("design");

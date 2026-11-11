@@ -56,8 +56,11 @@ export function exportVisualSvg(doc: Doc, options: VisualOptions = {}): string {
       const fill = obj.style?.fill ?? (layer.operation === "cut" ? layer.color : "none");
       // Keep the operation outline when there's no design fill, so score/draw
       // shapes stay visible and cut shapes read as they do in the editor.
-      const stroke = layer.operation !== "print" && !obj.style?.fill ? OPERATION_COLOR[layer.operation] : "none";
-      const strokeAttr = stroke === "none" ? "" : ` stroke="${stroke}" stroke-width="0.3" stroke-linejoin="round"`;
+      // A design stroke wins; otherwise keep the operation outline when unfilled.
+      const designStroke = obj.style?.stroke;
+      const stroke = designStroke ?? (layer.operation !== "print" && !obj.style?.fill ? OPERATION_COLOR[layer.operation] : "none");
+      const sw = designStroke ? (obj.style?.strokeWidth ?? 1) : 0.3;
+      const strokeAttr = stroke === "none" ? "" : ` stroke="${stroke}" stroke-width="${num(sw)}" stroke-linejoin="round"`;
       out.push(`  <path d="${serializePath(segs, 3)}" fill="${fill}"${strokeAttr}${op}/>`);
     }
   }
