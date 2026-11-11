@@ -73,7 +73,7 @@ const object = z.object({
   hidden: z.boolean().optional(),
 });
 
-const docSchema = z.object({
+export const docSchema = z.object({
   name: z.string().max(200),
   unit: z.enum(["mm", "in"]),
   mat: z.object({
@@ -114,7 +114,7 @@ export class ProjectError extends Error {
 }
 
 /** Repair a doc: drop duplicate object ids and reattach objects whose layer is gone. */
-function normalizeDoc(doc: Doc): Doc {
+export function normalizeDoc(doc: Doc): Doc {
   const layerIds = new Set(doc.layers.map((l) => l.id));
   const fallback = doc.layers[0].id;
   const seen = new Set<string>();

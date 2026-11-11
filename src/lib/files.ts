@@ -4,6 +4,7 @@ import { exportFileName, exportPrintable, exportSvg, slugify, type ExportKind } 
 import { buildPreviewHtml, exportVisualSvg, rasterSize } from "@/lib/doc/raster";
 import { jpegToPdf, mmToPt } from "@/lib/doc/pdf";
 import { PROJECT_EXTENSION, ProjectError, parseProject, serializeProject } from "@/lib/doc/project";
+import { importUserTemplates, listUserTemplates, serializeTemplatesBundle } from "@/lib/doc/templates";
 import { useEditor } from "@/store/editorStore";
 
 export function downloadFile(name: string, content: string | Blob, mime: string): void {
@@ -130,6 +131,33 @@ export function exportPreviewFile(): void {
   }
   downloadFile(`${slugify(doc.name)}-preview.html`, buildPreviewHtml(doc.name, svg), "text/html");
   notify("info", "Exported a shareable preview — open it or send the file to anyone.");
+}
+
+/** Download every saved template as a self-contained bundle (local backup/share). */
+export function exportTemplatesFile(): void {
+  const { notify } = useEditor.getState();
+  const templates = listUserTemplates();
+  if (templates.length === 0) {
+    notify("info", "You don't have any saved templates to export yet.");
+    return;
+  }
+  downloadFile("cutdesk-templates.json", serializeTemplatesBundle(templates), "application/json");
+  notify("info", `Exported ${templates.length} template${templates.length === 1 ? "" : "s"}.`);
+}
+
+/** Pick a bundle file and import its templates. Resolves to how many were added. */
+export async function importTemplatesFile(file?: File | null): Promise<number> {
+  const { notify } = useEditor.getState();
+  const picked = file ?? (await pickFile(".json,application/json"));
+  if (!picked) return 0;
+  try {
+    const added = importUserTemplates(await picked.text());
+    notify(added > 0 ? "info" : "error", added > 0 ? `Imported ${added} template${added === 1 ? "" : "s"}.` : "No templates were imported.");
+    return added;
+  } catch (err) {
+    notify("error", err instanceof Error ? err.message : "Couldn't import that template file.");
+    return 0;
+  }
 }
 
 export function saveProjectFile(): void {
