@@ -167,6 +167,39 @@ export function saveProjectFile(): void {
   notify("info", `Saved ${slugify(doc.name)}${PROJECT_EXTENSION}${pageNote}.`);
 }
 
+/** Decide how a dropped/picked file should be imported, from its name and MIME. */
+export function classifyImport(name: string, type: string): "project" | "svg" | "image" | null {
+  const n = name.toLowerCase();
+  if (n.endsWith(".cutdesk.json") || (n.endsWith(".json") && !type.startsWith("image"))) return "project";
+  if (type === "image/svg+xml" || n.endsWith(".svg")) return "svg";
+  if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/.test(n)) return "image";
+  return null;
+}
+
+/** One entry point for every importable file: project, SVG (as paths), or image (to trace). */
+export async function importFile(file: File): Promise<void> {
+  const st = useEditor.getState();
+  switch (classifyImport(file.name, file.type)) {
+    case "project":
+      await openProjectFile(file);
+      return;
+    case "svg":
+      await openSvgFile(file);
+      return;
+    case "image":
+      st.openImport(file);
+      return;
+    default:
+      st.notify("error", "Unsupported file — import an SVG, an image (PNG/JPG/WebP), or a .cutdesk.json project.");
+  }
+}
+
+/** Open a picker that accepts anything importable and route it. */
+export async function importAnyFile(): Promise<void> {
+  const picked = await pickFile(".svg,.png,.jpg,.jpeg,.webp,.gif,.cutdesk.json,.json,image/*,image/svg+xml,application/json");
+  if (picked) await importFile(picked);
+}
+
 export async function openSvgFile(file?: File | null): Promise<void> {
   const st = useEditor.getState();
   const picked = file ?? (await pickFile(".svg,image/svg+xml"));

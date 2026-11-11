@@ -1,6 +1,7 @@
 "use client";
 
-import { LayoutTemplate, QrCode, Search, Shapes, Smile, Sparkles, Type, Upload } from "lucide-react";
+import { FileUp, LayoutTemplate, QrCode, Search, Shapes, Smile, Sparkles, Type, Upload } from "lucide-react";
+import { importAnyFile } from "@/lib/files";
 import { useEffect, useMemo, useState } from "react";
 import { CATALOG, type GalleryShape } from "@/lib/gallery/catalog";
 import { DND_MIME, serializeDragPayload } from "@/lib/gallery/dnd";
@@ -119,6 +120,7 @@ export function ElementsPanel() {
       {/* Icon rail */}
       <div className="flex w-14 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-line px-1 py-2">
         <RailButton icon={LayoutTemplate} label="Templates" onClick={() => openTemplates(true)} />
+        <RailButton icon={FileUp} label="Import" onClick={() => void importAnyFile()} />
         <RailButton icon={QrCode} label="Codes" onClick={() => openGenerator(true)} />
         <div className="mx-auto my-1 h-px w-7 bg-line" />
         {SECTIONS.map((s) => (
