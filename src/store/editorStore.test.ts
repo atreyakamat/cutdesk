@@ -808,6 +808,14 @@ describe("stroke and shadow styling", () => {
     expect(o.style?.shadow).toBeUndefined();
     expect(o.style?.strokeWidth).toBe(2); // untouched
   });
+
+  it("sets and clears a gradient fill", () => {
+    const id = state().addObject({ geo: rect() });
+    state().setStyle([id], { gradient: { from: "#112233", to: "#ffffff", angle: 45 } });
+    expect(state().doc.objects.find((x) => x.id === id)!.style?.gradient).toEqual({ from: "#112233", to: "#ffffff", angle: 45 });
+    state().setStyle([id], { gradient: undefined });
+    expect(state().doc.objects.find((x) => x.id === id)!.style?.gradient).toBeUndefined();
+  });
 });
 
 describe("workspace mode", () => {

@@ -69,6 +69,13 @@ const object = z.object({
       stroke: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       strokeWidth: z.number().min(0).max(50).optional(),
       shadow: z.boolean().optional(),
+      gradient: z
+        .object({
+          from: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+          to: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+          angle: z.number(),
+        })
+        .optional(),
     })
     .optional(),
   groupId: z.string().min(1).max(64).optional(),

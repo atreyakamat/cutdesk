@@ -4,6 +4,7 @@ import {
   parsePath,
   pointsBBox,
   rectSegs,
+  segsBBox,
   transformPoint,
   transformSegs,
   type Matrix,
@@ -41,6 +42,13 @@ export function geoSegs(geo: Geometry): Seg[] | null {
     case "image":
       return null;
   }
+}
+
+/** Local-space bounding box of a geometry (before the object transform). */
+export function localBBox(geo: Geometry): BBox | null {
+  if (geo.kind === "image") return { minX: 0, minY: 0, maxX: geo.width, maxY: geo.height };
+  const segs = geoSegs(geo);
+  return segs ? segsBBox(segs) : null;
 }
 
 /** Corners of the local bounding box, used for images and empty paths. */

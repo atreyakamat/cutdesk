@@ -68,6 +68,8 @@ export interface ObjectStyle {
   strokeWidth?: number;
   /** Soft drop shadow for display. */
   shadow?: boolean;
+  /** Two-stop linear gradient fill; overrides the flat fill when set. */
+  gradient?: { from: string; to: string; angle: number };
 }
 
 export interface DesignObject extends Transform {

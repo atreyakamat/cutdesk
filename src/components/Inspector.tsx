@@ -253,6 +253,7 @@ function SelectionSection() {
   const stroke = single?.style?.stroke;
   const strokeW = single?.style?.strokeWidth ?? objs[0].style?.strokeWidth ?? 1;
   const shadowOn = objs.every((o) => o.style?.shadow);
+  const gradient = single?.style?.gradient;
   const canGroup = objs.length >= 2;
   const canUngroup = objs.some((o) => !!o.groupId);
   const shapeCount = objs.filter((o) => o.geo.kind !== "image").length;
@@ -443,6 +444,57 @@ function SelectionSection() {
               />
               <span>Drop shadow</span>
             </label>
+
+            <label className="flex items-center gap-2 text-sm text-ink-soft">
+              <input
+                type="checkbox"
+                aria-label="Gradient fill"
+                checked={!!gradient}
+                onChange={(e) =>
+                  store().setStyle(ids, { gradient: e.target.checked ? { from: fill ?? "#1f6feb", to: "#ffffff", angle: 0 } : undefined })
+                }
+                className="size-4 accent-ink"
+              />
+              <span>Gradient fill</span>
+            </label>
+            {gradient && (
+              <div className="flex flex-col gap-2 pl-6">
+                <div className="flex items-center gap-2">
+                  <label className="relative size-6 overflow-hidden rounded-full border border-line" title="Gradient start colour">
+                    <input
+                      type="color"
+                      aria-label="Gradient start colour"
+                      value={gradient.from}
+                      onChange={(e) => store().setStyle(ids, { gradient: { ...gradient, from: e.target.value } })}
+                      className="absolute -inset-1 cursor-pointer"
+                    />
+                  </label>
+                  <span className="text-xs text-ink-faint">to</span>
+                  <label className="relative size-6 overflow-hidden rounded-full border border-line" title="Gradient end colour">
+                    <input
+                      type="color"
+                      aria-label="Gradient end colour"
+                      value={gradient.to}
+                      onChange={(e) => store().setStyle(ids, { gradient: { ...gradient, to: e.target.value } })}
+                      className="absolute -inset-1 cursor-pointer"
+                    />
+                  </label>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-ink-soft">
+                  <span className="w-14">Angle</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={360}
+                    aria-label="Gradient angle"
+                    value={gradient.angle}
+                    onChange={(e) => store().setStyle(ids, { gradient: { ...gradient, angle: Number(e.target.value) } })}
+                    className="flex-1"
+                  />
+                  <span className="w-12 text-right tabular-nums">{Math.round(gradient.angle)}°</span>
+                </label>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               {EyeDropperCtor && (

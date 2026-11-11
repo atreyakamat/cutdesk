@@ -35,6 +35,9 @@ export function exportVisualSvg(doc: Doc, options: VisualOptions = {}): string {
     out.push(`  <rect x="0" y="0" width="${num(width)}" height="${num(height)}" fill="${escapeXml(options.background)}"/>`);
   }
 
+  const defs: string[] = [];
+  let gradId = 0;
+
   // Bottom layer first, matching the on-screen stacking order.
   for (const layer of doc.layers) {
     if (!layer.visible) continue;
@@ -61,10 +64,29 @@ export function exportVisualSvg(doc: Doc, options: VisualOptions = {}): string {
       const stroke = designStroke ?? (layer.operation !== "print" && !obj.style?.fill ? OPERATION_COLOR[layer.operation] : "none");
       const sw = designStroke ? (obj.style?.strokeWidth ?? 1) : 0.3;
       const strokeAttr = stroke === "none" ? "" : ` stroke="${stroke}" stroke-width="${num(sw)}" stroke-linejoin="round"`;
-      out.push(`  <path d="${serializePath(segs, 3)}" fill="${fill}"${strokeAttr}${op}/>`);
+
+      // A gradient fill (display) overrides the flat fill via a <defs> entry,
+      // using objectBoundingBox units so it spans each shape's own bbox.
+      let fillAttr = fill;
+      const grad = obj.style?.gradient;
+      if (grad) {
+        const id = `grad${gradId++}`;
+        const a = (grad.angle * Math.PI) / 180;
+        const x1 = (0.5 - 0.5 * Math.cos(a)).toFixed(4);
+        const y1 = (0.5 - 0.5 * Math.sin(a)).toFixed(4);
+        const x2 = (0.5 + 0.5 * Math.cos(a)).toFixed(4);
+        const y2 = (0.5 + 0.5 * Math.sin(a)).toFixed(4);
+        defs.push(
+          `<linearGradient id="${id}" gradientUnits="objectBoundingBox" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">` +
+            `<stop offset="0" stop-color="${escapeXml(grad.from)}"/><stop offset="1" stop-color="${escapeXml(grad.to)}"/></linearGradient>`,
+        );
+        fillAttr = `url(#${id})`;
+      }
+      out.push(`  <path d="${serializePath(segs, 3)}" fill="${fillAttr}"${strokeAttr}${op}/>`);
     }
   }
 
+  if (defs.length) out.splice(2, 0, `  <defs>${defs.join("")}</defs>`);
   out.push("</svg>");
   return out.join("\n") + "\n";
 }

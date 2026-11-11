@@ -4,6 +4,7 @@ import type Konva from "konva";
 import { memo } from "react";
 import { Ellipse, Image as KImage, Path, Rect } from "react-konva";
 import { OPERATION_COLOR } from "@/lib/doc/defaults";
+import { localBBox } from "@/lib/doc/geometry";
 import type { DesignObject, Layer } from "@/lib/doc/types";
 import { useLoadedImage } from "./useLoadedImage";
 
@@ -78,14 +79,37 @@ export const ObjectNode = memo(function ObjectNode({ obj, layer, draggable, onDr
   const fill = obj.style?.fill ?? (layer.operation === "cut" ? layer.color : undefined);
   const geo = obj.geo;
 
+  // A linear gradient fill (display) overrides the flat fill, spanning the
+  // shape's local bounding box at the chosen angle.
+  const grad = obj.style?.gradient;
+  let gradient: Record<string, unknown> = {};
+  if (grad && geo.kind !== "image") {
+    const bb = localBBox(geo);
+    if (bb) {
+      const rad = (grad.angle * Math.PI) / 180;
+      const cx = (bb.minX + bb.maxX) / 2;
+      const cy = (bb.minY + bb.maxY) / 2;
+      const hw = (bb.maxX - bb.minX) / 2;
+      const hh = (bb.maxY - bb.minY) / 2;
+      const dx = Math.cos(rad);
+      const dy = Math.sin(rad);
+      gradient = {
+        fillPriority: "linear-gradient",
+        fillLinearGradientStartPoint: { x: cx - dx * hw, y: cy - dy * hh },
+        fillLinearGradientEndPoint: { x: cx + dx * hw, y: cy + dy * hh },
+        fillLinearGradientColorStops: [0, grad.from, 1, grad.to],
+      };
+    }
+  }
+
   switch (geo.kind) {
     case "rect":
-      return <Rect {...common} {...outline} fill={fill} width={geo.width} height={geo.height} cornerRadius={geo.cornerRadius} />;
+      return <Rect {...common} {...outline} fill={fill} {...gradient} width={geo.width} height={geo.height} cornerRadius={geo.cornerRadius} />;
     case "ellipse":
-      return <Ellipse {...common} {...outline} fill={fill} radiusX={geo.rx} radiusY={geo.ry} />;
+      return <Ellipse {...common} {...outline} fill={fill} {...gradient} radiusX={geo.rx} radiusY={geo.ry} />;
     case "path":
     case "text":
-      return <Path {...common} {...outline} fill={fill} data={geo.d} />;
+      return <Path {...common} {...outline} fill={fill} {...gradient} data={geo.d} />;
     case "image":
       return <ImageNode obj={obj} common={common} outline={outline} />;
   }

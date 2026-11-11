@@ -25,6 +25,23 @@ function doc(): Doc {
   };
 }
 
+describe("exportVisualSvg gradients", () => {
+  it("emits a linearGradient def and references it when an object has a gradient", () => {
+    const d = doc();
+    d.objects[0].style = { gradient: { from: "#112233", to: "#445566", angle: 90 } };
+    const svg = exportVisualSvg(d);
+    expect(svg).toContain("<defs>");
+    expect(svg).toContain("<linearGradient");
+    expect(svg).toContain('stop-color="#112233"');
+    expect(svg).toContain('stop-color="#445566"');
+    expect(svg).toMatch(/fill="url\(#grad0\)"/);
+  });
+
+  it("omits defs when nothing uses a gradient", () => {
+    expect(exportVisualSvg(doc())).not.toContain("<defs>");
+  });
+});
+
 describe("exportVisualSvg", () => {
   it("fills a cut shape with the layer colour and sizes the page to the mat", () => {
     const svg = exportVisualSvg(doc());
