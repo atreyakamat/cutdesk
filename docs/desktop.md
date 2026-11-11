@@ -36,3 +36,19 @@ The frontend is a **static export** (`NEXT_OUTPUT_EXPORT=1`), so the desktop app
 has no Node server — it loads `out/index.html` directly. Machine features use the
 native serial transport (`src/lib/machine/tauriSerial.ts` → Rust commands in
 `src-tauri/src/`), the same `Transport` interface as the web Web-Serial path.
+
+## Mobile & web
+
+- **Web** — `npm run dev` (or any static/Node host). The UI is **responsive and
+  touch-friendly**: on phones the Elements library collapses to its icon rail and
+  opens as an overlay, and the layers/inspector panel becomes a drawer, so the mat
+  stays usable. It's also installable as a PWA-style app from the browser.
+- **Mobile (iOS / Android)** via Tauri v2:
+  ```bash
+  npm run tauri android init   # or: ios init   (one-time)
+  npm run tauri android dev     # run on a device/emulator
+  npm run tauri android build   # produce an .apk/.aab (or .ipa on iOS)
+  ```
+  Needs the platform SDKs (Android Studio / Xcode). USB cutting isn't available on
+  mobile — mobile is for designing and exporting (SVG/PNG/PDF/G-code); cut from a
+  desktop or an open-firmware setup.

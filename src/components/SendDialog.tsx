@@ -1,8 +1,10 @@
 "use client";
 
 import { Dialog } from "radix-ui";
-import { Pause, Play, Plug, RefreshCw, Send, Square, Usb, X } from "lucide-react";
+import { Download, Pause, Play, Plug, RefreshCw, Send, Square, Usb, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { downloadFile } from "@/lib/files";
+import { slugify } from "@/lib/doc/svg";
 import { generateGcode } from "@/lib/machine/gcode";
 import { GcodeStreamer } from "@/lib/machine/streamer";
 import { SimulatorTransport } from "@/lib/machine/simulator";
@@ -21,6 +23,13 @@ interface LogLine {
 }
 
 const DEFAULT_BRIDGE_URL = "ws://127.0.0.1:8787";
+
+const MODE_HELP: Record<Kind, string> = {
+  sim: "Dry-run the cut order in the browser — no machine needed.",
+  serial: "Plug the machine in over USB and connect (Chrome or Edge).",
+  bridge: "Connect through the local bridge server — covers USB and paired Bluetooth.",
+  tauri: "Use the desktop app's built-in native USB connection.",
+};
 
 const LOG_COLOR: Record<LogDir, string> = {
   tx: "text-ink",
@@ -207,6 +216,8 @@ export function SendDialog() {
                 ))}
               </div>
 
+              <p className="text-xs text-ink-soft">{MODE_HELP[kind]}</p>
+
               {kind === "serial" && !serialSupported && (
                 <p className="text-xs text-blade">Web Serial needs Chrome or Edge over HTTPS or localhost.</p>
               )}
@@ -303,10 +314,20 @@ export function SendDialog() {
                   Flip Y
                 </label>
               </div>
-              <p className="text-xs text-ink-faint tabular-nums">
-                {result.passCount} passes · {result.lineCount} lines · {(result.cutDistanceMm / 25.4).toFixed(1)} in of path · ~
-                {Math.max(1, Math.round(result.estimateSeconds / 60))} min
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-ink-faint tabular-nums">
+                  {result.passCount} passes · {result.lineCount} lines · {(result.cutDistanceMm / 25.4).toFixed(1)} in of path · ~
+                  {Math.max(1, Math.round(result.estimateSeconds / 60))} min
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => downloadFile(`${slugify(useEditor.getState().doc.name)}.gcode`, result.gcode, "text/plain")}
+                  aria-label="Download the G-code file"
+                >
+                  <Download className="size-3.5" aria-hidden="true" />
+                  G-code file
+                </Button>
+              </div>
               <pre className="scroll-thin max-h-28 overflow-auto rounded-control border border-line bg-sunken p-2 font-mono text-[11px] leading-snug text-ink-soft">
                 {result.gcode.split("\n").slice(0, 24).join("\n")}
                 {result.lineCount > 24 ? `\n… ${result.lineCount - 24} more lines` : ""}
