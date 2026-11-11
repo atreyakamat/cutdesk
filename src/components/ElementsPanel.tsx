@@ -3,6 +3,7 @@
 import { LayoutTemplate, QrCode, Search, Shapes, Smile, Sparkles, Type, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CATALOG, type GalleryShape } from "@/lib/gallery/catalog";
+import { DND_MIME, serializeDragPayload } from "@/lib/gallery/dnd";
 import { EMOJI, emojiToDataUrl, type EmojiItem } from "@/lib/gallery/emoji";
 import { deleteUpload, listUploads, saveUpload, type Upload as GalleryUpload } from "@/lib/gallery/uploads";
 import { useEditor } from "@/store/editorStore";
@@ -157,8 +158,10 @@ export function ElementsPanel() {
               <button
                 key={s.id}
                 type="button"
+                draggable
+                onDragStart={(ev) => ev.dataTransfer.setData(DND_MIME, serializeDragPayload({ t: "path", d: s.d, w: s.width, h: s.height, name: s.name }))}
                 onClick={() => insertShape(s)}
-                title={s.name}
+                title={`${s.name} — click or drag onto the mat`}
                 className="group grid aspect-square place-items-center rounded-control border border-line bg-raised p-2 text-ink-soft hover:border-ink hover:text-ink"
               >
                 <svg viewBox={`-2 -2 ${s.width + 4} ${s.height + 4}`} className="size-full" aria-hidden="true">
@@ -175,8 +178,10 @@ export function ElementsPanel() {
               <button
                 key={e.char}
                 type="button"
+                draggable
+                onDragStart={(ev) => ev.dataTransfer.setData(DND_MIME, serializeDragPayload({ t: "emoji", char: e.char, name: e.name }))}
                 onClick={() => insertEmoji(e)}
-                title={e.name}
+                title={`${e.name} — click or drag onto the mat`}
                 className="grid aspect-square place-items-center rounded-control border border-line bg-raised text-xl leading-none hover:border-ink"
               >
                 <span aria-hidden="true">{e.char}</span>

@@ -5,6 +5,7 @@ import { Pause, Play, RotateCcw, X } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Ellipse, Layer, Path, Rect, Stage, Transformer } from "react-konva";
 import { buildCutPlan } from "@/lib/doc/cutPlan";
+import { DND_MIME, buildDropObject, parseDragPayload } from "@/lib/gallery/dnd";
 import { bboxesIntersect, matrixOf, unionBBox, worldAABB } from "@/lib/doc/geometry";
 import { computeSnap, distributionSnap, gridTargets, snapBoxes, snapTargets, type SnapLines, type SpacingGuide } from "@/lib/doc/snapping";
 import { clamp, formatLength, formatValue } from "@/lib/doc/units";
@@ -765,9 +766,22 @@ export function MatCanvas() {
         st.openContextMenu(e.clientX, e.clientY);
       }}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+        if (e.dataTransfer.types.includes("Files") || e.dataTransfer.types.includes(DND_MIME)) e.preventDefault();
       }}
       onDrop={(e) => {
+        // A gallery item dragged from the Elements panel drops at the cursor.
+        const custom = e.dataTransfer.getData(DND_MIME);
+        if (custom) {
+          e.preventDefault();
+          const payload = parseDragPayload(custom);
+          const rect = wrapRef.current?.getBoundingClientRect();
+          if (!payload || !rect) return;
+          const v = useEditor.getState().view;
+          const at = { x: (e.clientX - rect.left - v.tx) / v.scale, y: (e.clientY - rect.top - v.ty) / v.scale };
+          const obj = buildDropObject(payload, at);
+          if (obj) useEditor.getState().addObject(obj);
+          return;
+        }
         const file = e.dataTransfer.files[0];
         if (!file) return;
         e.preventDefault();
