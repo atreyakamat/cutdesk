@@ -793,6 +793,16 @@ describe("lock and hide", () => {
   });
 });
 
+describe("workspace mode", () => {
+  it("defaults to design and toggles between design and cut", () => {
+    expect(state().mode).toBe("design");
+    state().setMode("cut");
+    expect(state().mode).toBe("cut");
+    state().setMode("design");
+    expect(state().mode).toBe("design");
+  });
+});
+
 describe("transforms and arrangement", () => {
   it("sets position by bounds and size by bounds", () => {
     const id = state().addObject({ geo: { kind: "ellipse", rx: 10, ry: 10 }, init: { x: 50, y: 50 } });

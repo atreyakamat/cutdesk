@@ -109,6 +109,8 @@ interface EditorState {
   /** Bumped to ask the inspector to focus the text field. */
   textFocusTick: number;
   panelsOpen: boolean;
+  /** Top-level workspace mode: "design" (Canva-style) or "cut" (Cricut). */
+  mode: "design" | "cut";
   /** Rulers + guides (guides are in mm; session-only, not saved to the file). */
   showRulers: boolean;
   snapToGrid: boolean;
@@ -219,6 +221,7 @@ interface EditorState {
   setGeneratorOpen: (open: boolean) => void;
   setSaveStatus: (status: SaveStatus) => void;
   setPanelsOpen: (open: boolean) => void;
+  setMode: (mode: "design" | "cut") => void;
   setShowRulers: (show: boolean) => void;
   setSnapToGrid: (on: boolean) => void;
   addGuide: (axis: "x" | "y", mm: number) => void;
@@ -307,6 +310,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     saveStatus: "idle",
     textFocusTick: 0,
     panelsOpen: false,
+    mode: "design",
     showRulers: false,
     snapToGrid: false,
     gridMm: 5,
@@ -1449,6 +1453,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     setSaveStatus: (saveStatus) => set((s) => (s.saveStatus === saveStatus ? s : { saveStatus })),
 
     setPanelsOpen: (panelsOpen) => set({ panelsOpen }),
+
+    setMode: (mode) => set({ mode }),
 
     setShowRulers: (showRulers) => set({ showRulers }),
 

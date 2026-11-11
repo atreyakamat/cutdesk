@@ -1,5 +1,6 @@
 "use client";
 
+import { ElementsPanel } from "./ElementsPanel";
 import { EmptyState } from "./EmptyState";
 import { ImportDialog } from "./ImportDialog";
 import { Inspector } from "./Inspector";
@@ -25,13 +26,22 @@ export default function Editor() {
   useAutosave();
   useShortcuts();
   const panelsOpen = useEditor((s) => s.panelsOpen);
+  const designMode = useEditor((s) => s.mode === "design");
 
   return (
     <TooltipProvider>
       <div className="grid h-dvh min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[3rem_minmax(0,1fr)] bg-bench text-ink">
         <TopBar />
-        <div className="relative grid min-h-0 grid-cols-[3.5rem_minmax(0,1fr)] lg:grid-cols-[3.5rem_minmax(0,1fr)_20rem]">
+        <div
+          className={cn(
+            "relative grid min-h-0",
+            designMode
+              ? "grid-cols-[3.5rem_auto_minmax(0,1fr)] lg:grid-cols-[3.5rem_auto_minmax(0,1fr)_20rem]"
+              : "grid-cols-[3.5rem_minmax(0,1fr)] lg:grid-cols-[3.5rem_minmax(0,1fr)_20rem]",
+          )}
+        >
           <ToolRail />
+          {designMode && <ElementsPanel />}
           <main className="mat-stage relative min-h-0 min-w-0 overflow-hidden" aria-label="Cutting mat">
             <MatCanvas />
             <Rulers />

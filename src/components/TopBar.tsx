@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Download, FilePlus2, FileUp, FolderOpen, Keyboard, LayoutTemplate, Play, QrCode, Redo2, Save, Undo2 } from "lucide-react";
+import { ChevronDown, Download, FilePlus2, FileUp, FolderOpen, Keyboard, LayoutTemplate, Palette, Play, QrCode, Redo2, Save, Scissors, Undo2 } from "lucide-react";
 import { DropdownMenu as M } from "radix-ui";
 import type { ReactNode } from "react";
 import { exportPdfFile, exportPngFile, exportPreviewFile, exportPrintableFile, exportSvgFile, openProjectFile, openSvgFile, saveProjectFile } from "@/lib/files";
@@ -54,6 +54,35 @@ function Item({
   );
 }
 
+function ModeSwitch() {
+  const mode = useEditor((s) => s.mode);
+  const setMode = useEditor((s) => s.setMode);
+  const modes: ReadonlyArray<{ id: "design" | "cut"; label: string; icon: typeof Palette }> = [
+    { id: "design", label: "Design", icon: Palette },
+    { id: "cut", label: "Cut", icon: Scissors },
+  ];
+  return (
+    <div role="radiogroup" aria-label="Workspace mode" className="flex items-center gap-0.5 rounded-control border border-line bg-raised p-0.5">
+      {modes.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          role="radio"
+          aria-checked={mode === m.id}
+          onClick={() => setMode(m.id)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-[calc(var(--radius-control)-2px)] px-2.5 py-1 text-sm font-medium transition-colors",
+            mode === m.id ? "bg-ink text-on-ink shadow-sm" : "text-ink-soft hover:text-ink",
+          )}
+        >
+          <m.icon className="size-3.5" aria-hidden="true" />
+          <span className="hidden sm:inline">{m.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const EXPORTS: ReadonlyArray<{ kind: ExportKind; label: string; hint: string }> = [
   { kind: "all", label: "Everything", hint: "All layers" },
   { kind: "cut", label: "Cut lines only", hint: "Red" },
@@ -98,6 +127,8 @@ export function TopBar() {
         <IconButton icon={Keyboard} label="Keyboard shortcuts" shortcut="?" onClick={() => openHelp(true)} />
         <ThemeToggle />
       </div>
+
+      <ModeSwitch />
 
       <div className="hidden flex-1 sm:block" />
 
