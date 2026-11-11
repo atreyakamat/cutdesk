@@ -14,6 +14,8 @@ jobs:
   check:
     name: Lint, types, unit tests, build
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,6 +32,8 @@ jobs:
   e2e:
     name: End-to-end (Playwright)
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
