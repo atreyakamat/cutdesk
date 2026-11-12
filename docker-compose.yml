@@ -4,7 +4,16 @@
 # host hardware access, so use the Tauri desktop app or run the bridge on the host.
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        # House of Stix address, so CutDesk opens in its windows (stixctl sets it).
+        CONTROL_ROOM_ORIGIN: ${CONTROL_ROOM_ORIGIN:-http://localhost:8200}
     ports:
       - "8304:3000"
     restart: unless-stopped
+    mem_limit: 384m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

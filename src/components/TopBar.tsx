@@ -186,6 +186,9 @@ export function TopBar() {
           <Item hint="Reg. marks" onSelect={exportPrintableFile}>
             Print-then-cut layout
           </Item>
+          <Item hint="Design Space" onSelect={() => window.open("/sheets", "_blank", "noopener")}>
+            Cricut A4 sticker sheets…
+          </Item>
           <div className="my-1 h-px bg-line" role="separator" />
           <Item hint="Image" onSelect={() => void exportPngFile()}>
             PNG image
