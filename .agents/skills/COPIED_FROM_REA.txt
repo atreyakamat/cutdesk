@@ -1,3 +1,0 @@
-These skills were copied from https://github.com/morluto/rea (.agents/skills).
-Only 'reverse-engineer-anything' is general-purpose; it requires the REA MCP server/CLI to function.
-The 4 'rea-*' skills maintain the REA repo itself and reference paths (../../../docs, AGENTS.md) not present here.
