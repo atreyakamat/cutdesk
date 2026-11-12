@@ -9,6 +9,9 @@ import { generateGcode } from "@/lib/machine/gcode";
 import { GcodeStreamer } from "@/lib/machine/streamer";
 import { SimulatorTransport } from "@/lib/machine/simulator";
 import { WebSerialTransport } from "@/lib/machine/webSerial";
+import { WebBluetoothTransport } from "@/lib/machine/webBluetooth";
+import { exploreDevice, formatExploreReport } from "@/lib/machine/ble/explore";
+import { parseUuidList } from "@/lib/machine/ble/profiles";
 import { WebSocketBridgeTransport, type BridgePort } from "@/lib/machine/webSocketBridge";
 import { TauriSerialTransport, isTauri } from "@/lib/machine/tauriSerial";
 import { TauriBleTransport, formatNativeExplore } from "@/lib/machine/tauriBle";
@@ -16,7 +19,7 @@ import type { LogDir, Transport } from "@/lib/machine/transport";
 import { useEditor } from "@/store/editorStore";
 import { Button } from "./ui/Controls";
 
-type Kind = "sim" | "serial" | "bridge" | "tauri" | "tauri-ble";
+type Kind = "sim" | "serial" | "ble" | "bridge" | "tauri" | "tauri-ble";
 interface LogLine {
   id: number;
   dir: LogDir;
@@ -28,6 +31,7 @@ const DEFAULT_BRIDGE_URL = "ws://127.0.0.1:8787";
 const MODE_HELP: Record<Kind, string> = {
   sim: "Dry-run the cut order in the browser — no machine needed.",
   serial: "Plug the machine in over USB and connect (Chrome or Edge).",
+  ble: "Wireless to a cutter with a Bluetooth serial adapter (Nordic UART or HM-10). Stock Cricut machines use a private protocol and won't connect here; use Explore to see what yours offers.",
   bridge: "Connect through the local bridge server — covers USB and paired Bluetooth.",
   tauri: "Use the desktop app's built-in native USB connection.",
   "tauri-ble":
@@ -50,6 +54,7 @@ export function SendDialog() {
   const [bridgeUrl, setBridgeUrl] = useState(DEFAULT_BRIDGE_URL);
   const [ports, setPorts] = useState<BridgePort[]>([]);
   const [port, setPort] = useState("");
+  const [bleServices, setBleServices] = useState("");
   const [exploring, setExploring] = useState(false);
   const bleFrames = useRef<string[]>([]);
 
@@ -70,6 +75,7 @@ export function SendDialog() {
 
   const result = useMemo(() => generateGcode(doc, { feed, travelFeed, flipY }), [doc, feed, travelFeed, flipY]);
   const serialSupported = WebSerialTransport.isSupported();
+  const bleSupported = WebBluetoothTransport.isSupported();
   const inTauri = isTauri();
 
   const addLog = (dir: LogDir, text: string) =>
@@ -105,6 +111,7 @@ export function SendDialog() {
 
   const buildTransport = (): Transport => {
     if (kind === "serial") return new WebSerialTransport(baud);
+    if (kind === "ble") return new WebBluetoothTransport();
     if (kind === "bridge") return new WebSocketBridgeTransport(bridgeUrl, port, baud);
     if (kind === "tauri") return new TauriSerialTransport(port, baud);
     if (kind === "tauri-ble") return new TauriBleTransport(port);
@@ -112,18 +119,37 @@ export function SendDialog() {
   };
 
   const explore = async () => {
-    if (!port) {
-      addLog("error", "Pick a device first (Scan).");
+    if (kind === "tauri-ble") {
+      if (!port) {
+        addLog("error", "Pick a device first (Scan).");
+        return;
+      }
+      setExploring(true);
+      addLog("info", "Exploring. This only reads and listens; nothing is written to the device.");
+      try {
+        const result = await TauriBleTransport.explore(port);
+        bleFrames.current = result.frames;
+        for (const line of formatNativeExplore(result)) addLog("info", line);
+      } catch (err) {
+        addLog("error", err instanceof Error ? err.message : String(err));
+      } finally {
+        setExploring(false);
+      }
+      return;
+    }
+    const { uuids, rejected } = parseUuidList(bleServices);
+    if (rejected.length) {
+      addLog("error", `Not a Bluetooth UUID: ${rejected.join(", ")}. Use 4 hex digits (ffe0) or the full 36-character form.`);
       return;
     }
     setExploring(true);
-    addLog("info", "Exploring. This only reads and listens; nothing is written to the device.");
+    addLog("info", "Pick a device. This only reads and listens; nothing is written to it.");
     try {
-      const result = await TauriBleTransport.explore(port);
+      const result = await exploreDevice(uuids);
       bleFrames.current = result.frames;
-      for (const line of formatNativeExplore(result)) addLog("info", line);
+      for (const line of formatExploreReport(result)) addLog("info", line);
     } catch (err) {
-      addLog("error", err instanceof Error ? err.message : String(err));
+      addLog("error", err instanceof Error ? err.message : "Couldn't explore that device.");
     } finally {
       setExploring(false);
     }
@@ -236,6 +262,7 @@ export function SendDialog() {
                   [
                     { k: "sim", label: "Simulator" },
                     { k: "serial", label: "USB" },
+                    { k: "ble", label: "Bluetooth (BLE)" },
                     { k: "bridge", label: "Bridge (USB / Bluetooth)" },
                     ...(inTauri
                       ? [
@@ -267,6 +294,38 @@ export function SendDialog() {
 
               {kind === "serial" && !serialSupported && (
                 <p className="text-xs text-blade">Web Serial needs Chrome or Edge over HTTPS or localhost.</p>
+              )}
+
+              {kind === "ble" && !bleSupported && (
+                <p className="text-xs text-blade">Web Bluetooth needs Chrome or Edge over HTTPS or localhost. On Linux it also needs BlueZ running.</p>
+              )}
+
+              {kind === "ble" && (
+                <div className="flex flex-col gap-1.5 rounded-control border border-line bg-sunken p-2.5">
+                  <label className="text-xs text-ink-soft" htmlFor="ble-services">
+                    Explore a device (optional: extra service UUIDs to look for)
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      id="ble-services"
+                      value={bleServices}
+                      onChange={(e) => setBleServices(e.target.value)}
+                      disabled={connected || exploring}
+                      placeholder="ffe0, 6e400001-b5a3-…"
+                      className="h-8 min-w-0 flex-1 rounded-control border border-line bg-raised px-2 font-mono text-xs disabled:opacity-45"
+                    />
+                    <Button variant="ghost" onClick={() => void explore()} disabled={!bleSupported || connected || exploring}>
+                      <Search className="size-3.5" aria-hidden="true" />
+                      {exploring ? "Exploring…" : "Explore"}
+                    </Button>
+                    <Button variant="ghost" onClick={() => void copyCapture()} aria-label="Copy the notifications heard as a capture log">
+                      <ClipboardCopy className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-ink-faint">
+                    The browser only shows services you name. To find a machine&apos;s own UUIDs, look at it once in a phone app such as nRF Connect.
+                  </p>
+                </div>
               )}
 
               {(kind === "bridge" || kind === "tauri" || kind === "tauri-ble") && (
@@ -322,7 +381,7 @@ export function SendDialog() {
               )}
 
               <div className="flex items-center gap-2">
-                {kind !== "sim" && kind !== "tauri-ble" && (
+                {kind !== "sim" && kind !== "ble" && kind !== "tauri-ble" && (
                   <label className="flex items-center gap-1.5 text-sm text-ink-soft">
                     Baud
                     <input
@@ -340,7 +399,7 @@ export function SendDialog() {
                       Disconnect
                     </Button>
                   ) : (
-                    <Button variant="primary" onClick={() => void connect()} disabled={connecting || (kind === "serial" && !serialSupported)}>
+                    <Button variant="primary" onClick={() => void connect()} disabled={connecting || (kind === "serial" && !serialSupported) || (kind === "ble" && !bleSupported)}>
                       <Plug className="size-3.5" aria-hidden="true" />
                       {connecting ? "Connecting…" : "Connect"}
                     </Button>

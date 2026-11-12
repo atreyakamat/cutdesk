@@ -23,42 +23,23 @@
 
 import { WebSocketServer } from "ws";
 import { SerialPort } from "serialport";
+import { DEFAULT_LOCAL_PORTS, originAllowed, parseOriginList } from "./origin.mjs";
 
 const PORT = Number(process.env.PORT) || 8787;
 
-/*
- * Which pages may talk to the bridge. Browsers let ANY website open a WebSocket
- * to 127.0.0.1, so without this check a page you happen to visit could drive
- * your cutter. Allowed: CutDesk on this computer (localhost, the desktop app)
- * and the addresses in BRIDGE_ORIGINS, e.g. the home lab copy:
- *   BRIDGE_ORIGINS="http://192.168.1.10:8304,https://cutdesk.example.com" npm start
- */
-const EXTRA_ORIGINS = new Set(
-  (process.env.BRIDGE_ORIGINS ?? "")
-    .split(/[\s,]+/)
-    .map((o) => o.trim().replace(/\/$/, ""))
-    .filter(Boolean),
-);
+const EXTRA_ORIGINS = parseOriginList(process.env.BRIDGE_ORIGINS);
+const LOCAL_PORTS = process.env.BRIDGE_LOCAL_PORTS
+  ? process.env.BRIDGE_LOCAL_PORTS.split(/[\s,]+/).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 65536)
+  : DEFAULT_LOCAL_PORTS;
 
-export function originAllowed(origin) {
-  if (!origin) return false;
-  if (EXTRA_ORIGINS.has(origin)) return true;
-  try {
-    const u = new URL(origin);
-    if (u.protocol === "tauri:") return true;
-    if (!["http:", "https:"].includes(u.protocol)) return false;
-    return ["localhost", "127.0.0.1", "[::1]", "tauri.localhost"].includes(u.hostname);
-  } catch {
-    return false;
-  }
-}
+const allowed = (origin) => originAllowed(origin, { extraOrigins: EXTRA_ORIGINS, localPorts: LOCAL_PORTS });
 
 const wss = new WebSocketServer({
   host: "127.0.0.1",
   port: PORT,
   maxPayload: 1024 * 1024,
   verifyClient: ({ origin }, done) => {
-    if (originAllowed(origin)) return done(true);
+    if (allowed(origin)) return done(true);
     console.warn(`[bridge] refused a connection from ${origin || "an unknown page"} (add it to BRIDGE_ORIGINS if it's yours)`);
     done(false, 403, "Origin not allowed");
   },
