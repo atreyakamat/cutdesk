@@ -85,7 +85,7 @@ Needs **Node 22+**. Works in any current Chromium or Firefox; machine features (
 - **Print-then-cut** — exports a printable sheet with registration marks that line up with the cut file (for open-firmware cutters).
 - **Cricut Design Space sticker sheets** (`/sheets`) — drop in sticker PNGs with quantities; they're turned and packed by their real shape onto Design Space's A4 Print Then Cut area across as many sheets as needed, and download as transparent 300 DPI PNGs. This is the path for stock Cricut machines.
 - **Export** — SVG (all or per-operation), **PNG**, **PDF**, and **G-code** (GRBL).
-- **Send to a machine** — a pluggable transport layer: a built-in simulator, **USB (Web Serial)**, a **WebSocket bridge** (for Bluetooth-as-serial / background use), and native serial in the desktop app.
+- **Send to a machine** — a pluggable transport layer: a built-in simulator, **USB (Web Serial)**, **Bluetooth (BLE)** for cutters with a serial-over-Bluetooth adapter (plus a read-only device explorer; see [docs/bluetooth.md](docs/bluetooth.md)), a **WebSocket bridge** (for Bluetooth-as-serial / background use), and native serial in the desktop app.
 
 ### 💾 Projects & mats
 - Projects save as **`.cutdesk.json`** (v2 format; still opens older single-page files) and autosave in the browser.

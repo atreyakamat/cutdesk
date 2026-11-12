@@ -56,12 +56,15 @@ It is **not** a driver for stock Cricut firmware (that protocol is proprietary).
 ## Which pages may connect
 
 Any website can try to open a WebSocket to `127.0.0.1`, so the bridge only accepts
-CutDesk itself: pages on `localhost` / `127.0.0.1`, the desktop app, and the
-addresses you list in `BRIDGE_ORIGINS`. If you open CutDesk from the home lab
-(House of Stix), add that address:
+CutDesk itself:
+
+- CutDesk on this computer, on **ports 3000** (dev server, `next start`) **and 8304** (Docker). Apps on other localhost ports are refused.
+- the desktop app
+- the addresses you list in `BRIDGE_ORIGINS`
 
 ```bash
-BRIDGE_ORIGINS="http://192.168.1.10:8304" npm start
+BRIDGE_ORIGINS="http://192.168.1.10:8304" npm start     # CutDesk opened from another machine
+BRIDGE_LOCAL_PORTS="3000,5173" npm start                # your own dev-server ports
 ```
 
-Other pages get a 403 and the bridge logs who tried.
+Other pages get a 403 and the bridge logs who tried. Requests with no Origin (curl, scripts) are refused. The rule lives in `origin.mjs` and is tested in `origin.test.mjs`.
