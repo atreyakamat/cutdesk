@@ -52,3 +52,35 @@ native serial transport (`src/lib/machine/tauriSerial.ts` → Rust commands in
   Needs the platform SDKs (Android Studio / Xcode). USB cutting isn't available on
   mobile — mobile is for designing and exporting (SVG/PNG/PDF/G-code); cut from a
   desktop or an open-firmware setup.
+
+## Bluetooth (desktop app)
+
+**Send to machine → Bluetooth (desktop)** uses the OS Bluetooth stack directly
+(`src-tauri/src/ble.rs`, BlueZ on Linux), so it needs no Chromium, no HTTPS, and no
+Web Bluetooth flags. Scan, pick a device, connect. It drives GRBL-style cutters that
+expose a serial-over-Bluetooth service:
+
+| Profile | Service |
+| --- | --- |
+| Nordic UART (ESP32, nRF52, most BLE GRBL boards) | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` |
+| HM-10 / JDY | `0000ffe0-0000-1000-8000-00805f9b34fb` |
+
+G-code is written in ordered 20-byte pieces. If the link drops, sending stops and the
+log says so. Needs Bluetooth switched on and, on Linux, BlueZ running
+(`systemctl status bluetooth`).
+
+**Explore** connects, lists every service and characteristic the device has (the desktop
+app, unlike a browser, doesn't need the UUIDs in advance), reads what's readable, listens
+for three seconds and disconnects. **It never writes to the device.** The notifications it
+hears can be copied as a capture log for the Cricut capture analyser.
+
+**Stock Cricut machines won't connect.** Their protocol is private, and some use Bluetooth
+Classic. Connecting to one gives a plain "no serial service" message. Use Explore to see
+what yours offers, then the capture analyser to see whether the traffic is plain or
+encrypted, before thinking about a driver.
+
+**Bluetooth Classic cutters** (an older Maker or Explore Air 2 running open firmware): pair
+in your OS and bind a serial port, e.g. `sudo rfcomm bind 0 AA:BB:CC:DD:EE:FF`. The
+**Desktop (native)** option lists `/dev/rfcomm*` ports.
+
+Not tested on real Bluetooth hardware yet. Try it with an ESP32 or HM-10 board first.

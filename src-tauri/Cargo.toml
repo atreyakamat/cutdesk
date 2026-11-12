@@ -24,3 +24,7 @@ log = "0.4"
 tauri = { version = "2.12.5" }
 tauri-plugin-log = "2"
 serialport = "4"
+btleplug = "0.11"
+futures = "0.3"
+uuid = "1"
+tokio = { version = "1", features = ["time", "sync"] }

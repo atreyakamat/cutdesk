@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog } from "radix-ui";
-import { Download, Pause, Play, Plug, RefreshCw, Send, Square, Usb, X } from "lucide-react";
+import { ClipboardCopy, Download, Pause, Play, Plug, RefreshCw, Search, Send, Square, Usb, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { downloadFile } from "@/lib/files";
 import { slugify } from "@/lib/doc/svg";
@@ -11,11 +11,12 @@ import { SimulatorTransport } from "@/lib/machine/simulator";
 import { WebSerialTransport } from "@/lib/machine/webSerial";
 import { WebSocketBridgeTransport, type BridgePort } from "@/lib/machine/webSocketBridge";
 import { TauriSerialTransport, isTauri } from "@/lib/machine/tauriSerial";
+import { TauriBleTransport, formatNativeExplore } from "@/lib/machine/tauriBle";
 import type { LogDir, Transport } from "@/lib/machine/transport";
 import { useEditor } from "@/store/editorStore";
 import { Button } from "./ui/Controls";
 
-type Kind = "sim" | "serial" | "bridge" | "tauri";
+type Kind = "sim" | "serial" | "bridge" | "tauri" | "tauri-ble";
 interface LogLine {
   id: number;
   dir: LogDir;
@@ -29,6 +30,8 @@ const MODE_HELP: Record<Kind, string> = {
   serial: "Plug the machine in over USB and connect (Chrome or Edge).",
   bridge: "Connect through the local bridge server — covers USB and paired Bluetooth.",
   tauri: "Use the desktop app's built-in native USB connection.",
+  "tauri-ble":
+    "Wireless through the desktop app's own Bluetooth, no browser limits. Works with cutters that have a Bluetooth serial adapter (Nordic UART or HM-10). Stock Cricut machines use a private protocol and won't connect; Explore shows everything yours offers.",
 };
 
 const LOG_COLOR: Record<LogDir, string> = {
@@ -47,6 +50,8 @@ export function SendDialog() {
   const [bridgeUrl, setBridgeUrl] = useState(DEFAULT_BRIDGE_URL);
   const [ports, setPorts] = useState<BridgePort[]>([]);
   const [port, setPort] = useState("");
+  const [exploring, setExploring] = useState(false);
+  const bleFrames = useRef<string[]>([]);
 
   const [feed, setFeed] = useState(1000);
   const [travelFeed, setTravelFeed] = useState(2000);
@@ -82,12 +87,17 @@ export function SendDialog() {
   };
 
   const refreshPorts = async () => {
-    addLog("info", kind === "tauri" ? "Listing native serial ports…" : `Listing ports from ${bridgeUrl}…`);
+    addLog("info", kind === "tauri-ble" ? "Scanning for Bluetooth devices (about 4 seconds)…" : kind === "tauri" ? "Listing native serial ports…" : `Listing ports from ${bridgeUrl}…`);
     try {
-      const found = kind === "tauri" ? await TauriSerialTransport.listPorts() : await WebSocketBridgeTransport.listPorts(bridgeUrl);
+      const found =
+        kind === "tauri-ble"
+          ? await TauriBleTransport.scan()
+          : kind === "tauri"
+            ? await TauriSerialTransport.listPorts()
+            : await WebSocketBridgeTransport.listPorts(bridgeUrl);
       setPorts(found);
       if (found[0] && !port) setPort(found[0].path);
-      addLog("info", found.length ? `Found ${found.length} port(s).` : "No ports found.");
+      addLog("info", found.length ? `Found ${found.length} ${kind === "tauri-ble" ? "device(s)" : "port(s)"}.` : kind === "tauri-ble" ? "No Bluetooth devices found. Is the cutter on, and Bluetooth switched on?" : "No ports found.");
     } catch (err) {
       addLog("error", err instanceof Error ? err.message : "Couldn't list ports.");
     }
@@ -97,12 +107,40 @@ export function SendDialog() {
     if (kind === "serial") return new WebSerialTransport(baud);
     if (kind === "bridge") return new WebSocketBridgeTransport(bridgeUrl, port, baud);
     if (kind === "tauri") return new TauriSerialTransport(port, baud);
+    if (kind === "tauri-ble") return new TauriBleTransport(port);
     return new SimulatorTransport();
   };
 
+  const explore = async () => {
+    if (!port) {
+      addLog("error", "Pick a device first (Scan).");
+      return;
+    }
+    setExploring(true);
+    addLog("info", "Exploring. This only reads and listens; nothing is written to the device.");
+    try {
+      const result = await TauriBleTransport.explore(port);
+      bleFrames.current = result.frames;
+      for (const line of formatNativeExplore(result)) addLog("info", line);
+    } catch (err) {
+      addLog("error", err instanceof Error ? err.message : String(err));
+    } finally {
+      setExploring(false);
+    }
+  };
+
+  const copyCapture = async () => {
+    try {
+      await navigator.clipboard.writeText(bleFrames.current.join("\n"));
+      addLog("info", "Copied. Paste it into the Cricut capture analyser.");
+    } catch {
+      addLog("error", "Couldn't copy to the clipboard.");
+    }
+  };
+
   const connect = async () => {
-    if ((kind === "bridge" || kind === "tauri") && !port) {
-      addLog("error", "Pick a port first (Refresh ports).");
+    if ((kind === "bridge" || kind === "tauri" || kind === "tauri-ble") && !port) {
+      addLog("error", kind === "tauri-ble" ? "Pick a device first (Scan)." : "Pick a port first (Refresh ports).");
       return;
     }
     setConnecting(true);
@@ -199,14 +237,23 @@ export function SendDialog() {
                     { k: "sim", label: "Simulator" },
                     { k: "serial", label: "USB" },
                     { k: "bridge", label: "Bridge (USB / Bluetooth)" },
-                    ...(inTauri ? [{ k: "tauri", label: "Desktop (native)" }] : []),
+                    ...(inTauri
+                      ? [
+                          { k: "tauri", label: "Desktop (native)" },
+                          { k: "tauri-ble", label: "Bluetooth (desktop)" },
+                        ]
+                      : []),
                   ] as { k: Kind; label: string }[]
                 ).map(({ k, label }) => (
                   <button
                     key={k}
                     type="button"
                     disabled={connected || sending}
-                    onClick={() => setKind(k)}
+                    onClick={() => {
+                      setKind(k);
+                      setPorts([]);
+                      setPort("");
+                    }}
                     className={`rounded-control border px-2.5 py-1.5 text-sm transition-colors disabled:opacity-45 ${
                       kind === k ? "border-ink bg-ink text-on-ink" : "border-line bg-raised text-ink hover:border-line-strong"
                     }`}
@@ -222,7 +269,7 @@ export function SendDialog() {
                 <p className="text-xs text-blade">Web Serial needs Chrome or Edge over HTTPS or localhost.</p>
               )}
 
-              {(kind === "bridge" || kind === "tauri") && (
+              {(kind === "bridge" || kind === "tauri" || kind === "tauri-ble") && (
                 <div className="flex flex-col gap-2">
                   {kind === "bridge" && (
                     <input
@@ -238,11 +285,11 @@ export function SendDialog() {
                       value={port}
                       onChange={(e) => setPort(e.target.value)}
                       disabled={connected}
-                      aria-label="Serial port"
+                      aria-label={kind === "tauri-ble" ? "Bluetooth device" : "Serial port"}
                       className="h-8 min-w-0 flex-1 appearance-none truncate rounded-control border border-line bg-raised px-2 text-sm disabled:opacity-45"
                     >
                       {ports.length === 0 ? (
-                        <option value="">No ports — Refresh</option>
+                        <option value="">{kind === "tauri-ble" ? "No devices — Scan" : "No ports — Refresh"}</option>
                       ) : (
                         ports.map((p) => (
                           <option key={p.path} value={p.path}>
@@ -251,15 +298,31 @@ export function SendDialog() {
                         ))
                       )}
                     </select>
-                    <Button variant="ghost" onClick={() => void refreshPorts()} disabled={connected} aria-label="Refresh ports">
+                    <Button
+                      variant="ghost"
+                      onClick={() => void refreshPorts()}
+                      disabled={connected || exploring}
+                      aria-label={kind === "tauri-ble" ? "Scan for Bluetooth devices" : "Refresh ports"}
+                    >
                       <RefreshCw className="size-3.5" aria-hidden="true" />
                     </Button>
+                    {kind === "tauri-ble" && (
+                      <>
+                        <Button variant="ghost" onClick={() => void explore()} disabled={connected || exploring || !port}>
+                          <Search className="size-3.5" aria-hidden="true" />
+                          {exploring ? "Exploring…" : "Explore"}
+                        </Button>
+                        <Button variant="ghost" onClick={() => void copyCapture()} aria-label="Copy the notifications heard as a capture log">
+                          <ClipboardCopy className="size-3.5" aria-hidden="true" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
 
               <div className="flex items-center gap-2">
-                {kind !== "sim" && (
+                {kind !== "sim" && kind !== "tauri-ble" && (
                   <label className="flex items-center gap-1.5 text-sm text-ink-soft">
                     Baud
                     <input
