@@ -5,6 +5,8 @@
 // OS exposes as a serial port — with none of the browser's HTTPS/Chromium
 // limits. Incoming bytes are pushed to the frontend as "serial-data" events.
 
+mod ble;
+
 use std::io::{Read, Write};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -26,7 +28,19 @@ struct PortInfo {
 
 #[tauri::command]
 fn list_serial_ports() -> Result<Vec<PortInfo>, String> {
-    let ports = serialport::available_ports().map_err(|e| e.to_string())?;
+    let mut ports = serialport::available_ports().map_err(|e| e.to_string())?;
+    // A Bluetooth Classic cutter bound with `rfcomm bind` is an ordinary serial device, but the
+    // port scan doesn't always list it. Add any /dev/rfcomm* that is missing.
+    #[cfg(target_os = "linux")]
+    if let Ok(entries) = std::fs::read_dir("/dev") {
+        for e in entries.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            let path = format!("/dev/{name}");
+            if name.starts_with("rfcomm") && !ports.iter().any(|p| p.port_name == path) {
+                ports.push(serialport::SerialPortInfo { port_name: path, port_type: serialport::SerialPortType::Unknown });
+            }
+        }
+    }
     Ok(ports
         .into_iter()
         .map(|p| {
@@ -99,6 +113,7 @@ fn close_serial(state: State<'_, SerialState>) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(SerialState::default())
+        .manage(ble::BleState::default())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -113,7 +128,12 @@ pub fn run() {
             list_serial_ports,
             open_serial,
             write_serial,
-            close_serial
+            close_serial,
+            ble::ble_scan,
+            ble::ble_connect,
+            ble::ble_write,
+            ble::ble_disconnect,
+            ble::ble_explore
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");

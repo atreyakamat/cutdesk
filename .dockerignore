@@ -9,6 +9,4 @@ bridge/node_modules
 npm-debug.log*
 *.local
 .DS_Store
-index.html
-cricut-design-space.md
 .agents
