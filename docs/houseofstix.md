@@ -26,21 +26,30 @@ Paste this entry into House of Stix `services.yaml`:
   description: Design-and-cut editor — shapes, text, trace, print-then-cut, send to machine
   icon: "🛠️"
   group: Studio tools
-  tier: heavy
+  tier: base
   url: http://${HOME_LAB_HOST:-localhost}:8304
   health: http://${HEALTH_HOST:-localhost}:8304/health.json
-  expect: '"ok": true'
+  expect: '"ok"'
 ```
 
+(House of Stix already ships this entry, and `deploy/stack.conf` builds CutDesk with `stixctl up cutdesk`.)
+
 CutDesk then appears under **Studio tools** with a live status dot, opening in
-its own window. It sets no `X-Frame-Options`, so it embeds in the control room's
-app-window; if you later put it behind a proxy, allow framing from the control
-room origin (`Content-Security-Policy: frame-ancestors`).
+its own window. It sends `Content-Security-Policy: frame-ancestors 'self' <CONTROL_ROOM_ORIGIN>`:
+the control room may frame it, no other site can. `CONTROL_ROOM_ORIGIN` is a
+Docker build arg (`stixctl bootstrap` writes it to `~/stix/env/cutdesk.env`); after
+changing it, rebuild (`stixctl up cutdesk`).
 
 ## Notes
 
-- The existing `cricut` tool (port 8300, "Pack stickers onto A4 Print Then Cut
-  sheets") is a separate, smaller tool — CutDesk is the full editor and gets its
-  own `id`.
+- **Cricut Design Space sheets** live at `/sheets` (also *Export → Cricut A4 sticker
+  sheets…*): the same shape-aware packer as the standalone `cricut` tool (port 8300),
+  so once you're happy with it you can set `cricut` to `no` in House of Stix's
+  `deploy/stack.conf`.
+- Stock Cricut machines only cut through Design Space, so for them use `/sheets`.
+  The editor's own *Print-then-cut layout* export (L-bracket marks) is for
+  open-firmware cutters.
+- Using the bridge with the home lab copy: start it with
+  `BRIDGE_ORIGINS="http://<home lab>:8304"` (see `bridge/README.md`).
 - Machine control (USB/Bluetooth) needs host hardware, so for cutting use the
   Tauri desktop build or the host-run bridge, not the Docker container.

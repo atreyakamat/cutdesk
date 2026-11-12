@@ -52,3 +52,16 @@ Plain GRBL-style line protocol: it forwards whatever G-code the app streams and
 relays the machine's replies (`ok`, `error:…`, status) back. It works with a
 Cricut Maker running **CutcutGo** firmware, or any GRBL / HPGL open cutter.
 It is **not** a driver for stock Cricut firmware (that protocol is proprietary).
+
+## Which pages may connect
+
+Any website can try to open a WebSocket to `127.0.0.1`, so the bridge only accepts
+CutDesk itself: pages on `localhost` / `127.0.0.1`, the desktop app, and the
+addresses you list in `BRIDGE_ORIGINS`. If you open CutDesk from the home lab
+(House of Stix), add that address:
+
+```bash
+BRIDGE_ORIGINS="http://192.168.1.10:8304" npm start
+```
+
+Other pages get a 403 and the bridge logs who tried.
